@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>👾 Space Invaders</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  background: #000;
+  min-height: 100vh;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Courier New', monospace;
+  overflow: hidden;
+}
+#home-btn {
+  position: fixed; top: 18px; left: 18px;
+  background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 10px; padding: 8px 14px;
+  color: rgba(255,255,255,0.6); font-size: 13px;
+  text-decoration: none; transition: all 0.2s; backdrop-filter: blur(4px); z-index: 9000;
+}
+#home-btn:hover { background: rgba(255,255,255,0.15); color: white; }
+#wrap { position: relative; }
+canvas { display: block; border-radius: 4px; }
+#hud {
+  position: absolute; top: 10px; left: 0; right: 0;
+  display: flex; justify-content: space-between; padding: 0 16px;
+  pointer-events: none;
+}
+.hpill {
+  background: rgba(0,0,0,0.6);
+  color: #0f0; font-size: 13px; font-weight: 700;
+  padding: 4px 12px; border: 1px solid #0f04; border-radius: 4px;
+  font-family: 'Courier New', monospace;
+}
+#overlay {
+  position: absolute; inset: 0;
+  background: rgba(0,0,0,0.82);
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 4px;
+}
+#ov { text-align: center; color: #0f0; font-family: 'Courier New', monospace; }
+#ov-emoji { font-size: 52px; margin-bottom: 10px; }
+#ov-title { font-size: 28px; font-weight: 700; margin-bottom: 6px; letter-spacing: 2px; }
+#ov-sub { font-size: 13px; color: rgba(0,255,0,0.5); margin-bottom: 24px; line-height: 1.7; }
+#ov-btn {
+  background: transparent; border: 2px solid #0f0;
+  color: #0f0; padding: 12px 40px; border-radius: 4px;
+  font-size: 16px; font-weight: 700; cursor: pointer;
+  font-family: 'Courier New', monospace; letter-spacing: 1px;
+  transition: all 0.15s;
+}
+#ov-btn:hover { background: #0f0; color: #000; }
+#ov-hint { margin-top: 14px; font-size: 11px; color: rgba(0,255,0,0.3); }
+</style>
+</head>
+<body>
+<a id="home-btn" href="index.html">← 홈</a>
+<div id="wrap">
+  <canvas id="c" width="480" height="560"></canvas>
+  <div id="hud">
+    <div class="hpill">SCORE <span id="sc">0</span></div>
+    <div class="hpill">BEST <span id="bs">0</span></div>
+    <div class="hpill">LIVES <span id="lv">3</span></div>
+    <div class="hpill">LV <span id="lv2">1</span></div>
+  </div>
+  <div id="overlay">
+    <div id="ov">
+      <div id="ov-emoji">👾</div>
+      <div id="ov-title">SPACE INVADERS</div>
+      <div id="ov-sub">외계인의 침략을 막아라!<br>UFO를 맞추면 보너스 점수!</div>
+      <button id="ov-btn" onclick="startGame()">INSERT COIN</button>
+      <div id="ov-hint">← → 이동 &nbsp;|&nbsp; Space 발사</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const c = document.getElementById('c');
+const ctx = c.getContext('2d');
+const W = c.width, H = c.height;
+
+let score, best, lives, level, raf, state;
+best = +localStorage.getItem('best_invaders') || 0;
+document.getElementById('bs').textContent = best;
+
+// Invader shapes (pixel art 8x6 grid, 3 types)
+const SHAPES = [
+  // Type A (top 1 row) - 30pts
+  [0,0,1,0,0,0,1,0,
+   0,1,1,1,1,1,1,0,
+   1,1,0,1,1,0,1,1,
+   1,1,1,1,1,1,1,1,
+   0,1,0,1,1,0,1,0,
+   1,0,0,0,0,0,0,1],
+  // Type B (rows 1-2) - 20pts
+  [0,0,0,1,1,0,0,0,
+   0,0,1,1,1,1,0,0,
+   0,1,1,1,1,1,1,0,
+   0,1,0,1,1,0,1,0,
+   0,1,1,1,1,1,1,0,
+   0,0,1,0,0,1,0,0],
+  // Type C (rows 3-4) - 10pts
+  [0,1,1,0,0,1,1,0,
+   1,1,1,1,1,1,1,1,
+   1,1,1,1,1,1,1,1,
+   0,1,1,0,0,1,1,0,
+   0,1,0,0,0,0,1,0,
+   1,0,0,0,0,0,0,1],
+];
+const COLORS = ['#ff4757','#ffd32a','#2ed573'];
+const IPTS   = [30, 20, 10];
+
+const COLS = 10, ROWS = 5;
+const IW = 32, IH = 24, IGAP_X = 10, IGAP_Y = 8;
+const GRID_OX = (W - COLS*(IW+IGAP_X) + IGAP_X) / 2;
+const GRID_OY = 80;
+
+const PW = 44, PH = 14, PY = H - 50;
+const BW = 3, BH = 10;
+const SHIELD_W = 46, SHIELD_H = 32;
+
+// Stars
+const STARS = Array.from({length:80}, () => ({
+  x: Math.random()*W, y: Math.random()*H,
+  r: Math.random()*1.5+0.3, b: Math.random()
+}));
+
+let player, bullets, eBullets, invaders, shields, ufo;
+let invDir, invSpeed, invDropDist, invDescend;
+let shootTimer, ufoTimer, animFrame;
+
+function startGame() {
+  document.getElementById('overlay').style.display = 'none';
+  score = 0; lives = 3; level = 1; animFrame = 0;
+  initLevel();
+  updateHUD();
+  state = 'playing';
+  cancelAnimationFrame(raf);
+  loop();
+}
+
+function initLevel() {
+  player = { x: W/2 - PW/2, vx: 0 };
+  bullets = []; eBullets = [];
+  invDir = 1;
+  invSpeed = 0.4 + level * 0.15;
+  invDropDist = 0;
+  invDescend = false;
+
+  invaders = [];
+  for (let r = 0; r < ROWS; r++)
+    for (let c = 0; c < COLS; c++) {
+      const type = r === 0 ? 0 : r <= 2 ? 1 : 2;
+      invaders.push({
+        x: GRID_OX + c*(IW+IGAP_X),
+        y: GRID_OY + r*(IH+IGAP_Y),
+        type, alive: true,
+        anim: Math.floor(Math.random()*2),
+      });
+    }
+
+  // 4 shields
+  shields = [];
+  for (let i = 0; i < 4; i++) {
+    const sx = 40 + i * 105;
+    const sy = H - 120;
+    const cells = [];
+    for (let r = 0; r < 4; r++)
+      for (let cc = 0; cc < 6; cc++) {
+        // Arch shape: remove bottom corners
+        if (r === 3 && (cc === 0 || cc === 5)) continue;
+        cells.push({ x: sx + cc*8, y: sy + r*8, hp: 3 });
+      }
+    shields.push(cells);
+  }
+
+  ufo = null;
+  shootTimer = 80;
+  ufoTimer = 400 + Math.random()*300;
+}
+
+const keys = {};
+document.addEventListener('keydown', e => {
+  keys[e.code] = true;
+  if (e.code === 'Space') {
+    if (state === 'playing' && bullets.length < 2) {
+      bullets.push({ x: player.x + PW/2, y: PY - BH, vy: -9 });
+    }
+    e.preventDefault();
+  }
+});
+document.addEventListener('keyup', e => { keys[e.code] = false; });
+
+function loop() {
+  raf = requestAnimationFrame(loop);
+  update();
+  draw();
+}
+
+function update() {
+  animFrame++;
+
+  // Player
+  if (keys['ArrowLeft'])  player.x = Math.max(0, player.x - 5);
+  if (keys['ArrowRight']) player.x = Math.min(W - PW, player.x + 5);
+
+  // Player bullets
+  bullets = bullets.filter(b => {
+    b.y += b.vy;
+    if (b.y < 0) return false;
+    // UFO hit
+    if (ufo && b.x > ufo.x && b.x < ufo.x+60 && b.y < ufo.y+14 && b.y > ufo.y) {
+      const pts = [50,100,150,200,300][Math.floor(Math.random()*5)];
+      score += pts; updateHUD(); ufo = null; return false;
+    }
+    // Invader hit
+    for (const inv of invaders) {
+      if (!inv.alive) continue;
+      if (b.x > inv.x && b.x < inv.x+IW && b.y < inv.y+IH && b.y > inv.y) {
+        inv.alive = false;
+        score += IPTS[inv.type] * level;
+        if (score > best) { best = score; localStorage.setItem('best_invaders', best); }
+        updateHUD();
+        invSpeed = 0.4 + level*0.15 + (1 - aliveCount()/50)*0.6;
+        return false;
+      }
+    }
+    // Shield hit
+    for (const sh of shields) {
+      for (const cell of sh) {
+        if (cell.hp > 0 && b.x >= cell.x && b.x <= cell.x+8 && b.y >= cell.y && b.y <= cell.y+8) {
+          cell.hp--; return false;
+        }
+      }
+    }
+    return true;
+  });
+
+  // Enemy bullets
+  eBullets = eBullets.filter(b => {
+    b.y += 4;
+    if (b.y > H) return false;
+    // Hit player
+    if (b.x > player.x && b.x < player.x+PW && b.y > PY && b.y < PY+PH) {
+      loseLife(); return false;
+    }
+    // Hit shield
+    for (const sh of shields) {
+      for (const cell of sh) {
+        if (cell.hp > 0 && b.x >= cell.x && b.x <= cell.x+8 && b.y >= cell.y && b.y <= cell.y+8) {
+          cell.hp--; return false;
+        }
+      }
+    }
+    return true;
+  });
+
+  // Invader movement
+  const alive = invaders.filter(i => i.alive);
+  if (!alive.length) { level++; initLevel(); updateHUD(); return; }
+
+  // Check bounds
+  let minX = Infinity, maxX = -Infinity;
+  for (const i of alive) { minX = Math.min(minX, i.x); maxX = Math.max(maxX, i.x+IW); }
+  if (invDescend) {
+    for (const i of invaders) i.y += 6;
+    invDropDist += 6;
+    if (invDropDist >= 12) { invDescend = false; invDir *= -1; invDropDist = 0; }
+  } else {
+    for (const i of invaders) i.x += invDir * invSpeed;
+    if (maxX >= W - 4 || minX <= 4) invDescend = true;
+  }
+
+  // Invader reaches bottom
+  for (const i of alive) {
+    if (i.y + IH >= PY) { loseLife(); return; }
+  }
+
+  // Invader shooting
+  shootTimer--;
+  if (shootTimer <= 0) {
+    shootTimer = Math.max(20, 80 - level*8 - (50-alive.length));
+    const shooter = alive[Math.floor(Math.random()*alive.length)];
+    if (eBullets.length < 3 + level)
+      eBullets.push({ x: shooter.x + IW/2, y: shooter.y + IH });
+  }
+
+  // Invader animation tick
+  if (animFrame % 30 === 0)
+    for (const i of invaders) i.anim = 1 - i.anim;
+
+  // UFO
+  ufoTimer--;
+  if (ufoTimer <= 0 && !ufo) { ufo = { x: -70, y: 36 }; ufoTimer = 500 + Math.random()*400; }
+  if (ufo) {
+    ufo.x += 2;
+    if (ufo.x > W + 70) ufo = null;
+  }
+}
+
+function aliveCount() { return invaders.filter(i => i.alive).length; }
+
+function loseLife() {
+  lives--;
+  updateHUD();
+  if (lives <= 0) {
+    state = 'over';
+    cancelAnimationFrame(raf);
+    showEnd('💀', 'GAME OVER', `SCORE: ${score}\nBEST: ${best}`);
+  } else {
+    bullets = []; eBullets = [];
+    player.x = W/2 - PW/2;
+  }
+}
+
+// ── Draw ─────────────────────────────────────────────────
+function draw() {
+  ctx.fillStyle = '#000'; ctx.fillRect(0,0,W,H);
+
+  // Stars
+  for (const s of STARS) {
+    const b = 0.4 + Math.sin(animFrame*0.02 + s.b*10) * 0.3;
+    ctx.globalAlpha = b;
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI*2); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  // Ground line
+  ctx.strokeStyle = 'rgba(0,255,0,0.3)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0, H-30); ctx.lineTo(W, H-30); ctx.stroke();
+
+  // UFO
+  if (ufo) {
+    ctx.save();
+    ctx.shadowColor = '#f00'; ctx.shadowBlur = 14;
+    ctx.fillStyle = '#ff4444';
+    ctx.beginPath(); ctx.ellipse(ufo.x+30, ufo.y+10, 30, 10, 0, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#ff8888';
+    ctx.beginPath(); ctx.ellipse(ufo.x+30, ufo.y+6, 16, 8, 0, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
+    ctx.fillStyle = '#ff4'; ctx.font = 'bold 10px Courier New'; ctx.textAlign = 'center';
+    ctx.fillText('UFO', ufo.x+30, ufo.y+3);
+  }
+
+  // Invaders
+  for (const inv of invaders) {
+    if (!inv.alive) continue;
+    drawInvader(inv);
+  }
+
+  // Shields
+  for (const sh of shields)
+    for (const cell of sh) {
+      if (cell.hp <= 0) continue;
+      const a = cell.hp / 3;
+      ctx.globalAlpha = a * 0.9 + 0.1;
+      ctx.fillStyle = '#2ed573';
+      ctx.fillRect(cell.x, cell.y, 8, 8);
+    }
+  ctx.globalAlpha = 1;
+
+  // Player
+  ctx.save();
+  ctx.shadowColor = '#0f0'; ctx.shadowBlur = 12;
+  ctx.fillStyle = '#0f0';
+  // Body
+  ctx.fillRect(player.x + 6, PY, PW-12, PH);
+  ctx.fillRect(player.x + 12, PY-8, PW-24, 10);
+  ctx.fillRect(player.x, PY+4, PW, PH-4);
+  // Cannon tip
+  ctx.fillRect(player.x + PW/2 - 3, PY-14, 6, 8);
+  ctx.restore();
+
+  // Player bullets
+  for (const b of bullets) {
+    ctx.save();
+    ctx.shadowColor = '#ff0'; ctx.shadowBlur = 8;
+    ctx.fillStyle = '#ff0';
+    ctx.fillRect(b.x-2, b.y, BW, BH);
+    ctx.restore();
+  }
+
+  // Enemy bullets
+  for (const b of eBullets) {
+    ctx.fillStyle = '#f66';
+    ctx.fillRect(b.x-2, b.y, 3, 10);
+  }
+}
+
+function drawInvader(inv) {
+  const px = 4; // pixel size
+  const sh = SHAPES[inv.type];
+  ctx.save();
+  ctx.shadowColor = COLORS[inv.type]; ctx.shadowBlur = 8;
+  ctx.fillStyle = COLORS[inv.type];
+  for (let r = 0; r < 6; r++) {
+    for (let cc = 0; cc < 8; cc++) {
+      const i = r*8 + (inv.anim === 1 && r < 3 ? 7-cc : cc);
+      if (sh[r*8 + cc]) ctx.fillRect(inv.x + cc*px, inv.y + r*px, px, px);
+    }
+  }
+  ctx.restore();
+}
+
+function updateHUD() {
+  document.getElementById('sc').textContent = score;
+  document.getElementById('bs').textContent = best;
+  document.getElementById('lv').textContent = lives;
+  document.getElementById('lv2').textContent = level;
+}
+
+function showEnd(emoji, title, sub) {
+  document.getElementById('ov-emoji').textContent = emoji;
+  document.getElementById('ov-title').textContent = title;
+  document.getElementById('ov-sub').textContent = sub;
+  document.getElementById('ov-btn').textContent = 'PLAY AGAIN';
+  document.getElementById('overlay').style.display = 'flex';
+}
+
+// Initial draw
+ctx.fillStyle = '#000'; ctx.fillRect(0,0,W,H);
+</script>
+</body>
+</html>
