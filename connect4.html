@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🔴 Connect 4</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  background: linear-gradient(135deg, #0a0a1a, #1a0a00, #0a0a1a);
+  min-height: 100vh;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Segoe UI', sans-serif;
+  overflow: hidden;
+}
+#home-btn {
+  position: fixed; top: 18px; left: 18px;
+  background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 10px; padding: 8px 14px;
+  color: rgba(255,255,255,0.6); font-size: 13px;
+  text-decoration: none; transition: all 0.2s; backdrop-filter: blur(4px); z-index: 9000;
+}
+#home-btn:hover { background: rgba(255,255,255,0.15); color: white; }
+
+#app { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+
+#scoreboard { display: flex; gap: 12px; align-items: center; }
+.score-box {
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 14px; padding: 10px 24px; text-align: center; color: white;
+}
+.score-label { font-size: 11px; color: rgba(255,255,255,0.4); margin-bottom: 2px; }
+.score-val { font-size: 24px; font-weight: 900; }
+.score-box.red  .score-val { color: #ff4757; }
+.score-box.yel  .score-val { color: #ffd32a; }
+.vs { font-size: 18px; color: rgba(255,255,255,0.3); font-weight: 700; }
+
+#status {
+  font-size: 15px; font-weight: 700; color: white;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 99px; padding: 7px 20px;
+  min-width: 200px; text-align: center;
+}
+
+/* Board */
+#board-outer {
+  background: rgba(0,60,180,0.6);
+  border: 2px solid rgba(0,100,255,0.4);
+  border-radius: 16px; padding: 12px;
+  box-shadow: 0 0 40px rgba(0,100,255,0.2), 0 20px 60px rgba(0,0,0,0.5);
+}
+#col-hints { display: flex; justify-content: center; gap: 6px; margin-bottom: 6px; }
+.ch {
+  width: 58px; height: 20px; border-radius: 99px;
+  background: transparent; cursor: pointer; transition: all 0.15s;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; color: transparent;
+}
+.ch:hover { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.5); }
+#board { display: grid; grid-template-columns: repeat(7, 58px); gap: 6px; }
+.cell {
+  width: 58px; height: 58px; border-radius: 50%;
+  background: rgba(0,0,30,0.7);
+  box-shadow: inset 0 3px 8px rgba(0,0,0,0.5);
+  transition: background 0.1s;
+  position: relative; cursor: pointer;
+}
+.cell.red  { background: radial-gradient(circle at 35% 35%, #ff6b81, #ff4757); box-shadow: 0 0 12px rgba(255,71,87,0.5), inset 0 -3px 6px rgba(0,0,0,0.3); }
+.cell.yel  { background: radial-gradient(circle at 35% 35%, #ffeaa7, #ffd32a); box-shadow: 0 0 12px rgba(255,211,32,0.5), inset 0 -3px 6px rgba(0,0,0,0.3); }
+.cell.win  { animation: pulse 0.5s ease infinite alternate; }
+@keyframes pulse { from { box-shadow: 0 0 8px currentColor; } to { box-shadow: 0 0 24px currentColor, 0 0 48px currentColor; } }
+.cell.win.red { box-shadow: 0 0 20px #ff4757; color: #ff4757; }
+.cell.win.yel { box-shadow: 0 0 20px #ffd32a; color: #ffd32a; }
+
+/* Hover preview */
+.cell.preview-red  { background: radial-gradient(circle at 35% 35%, #ff6b81aa, #ff475780); }
+.cell.preview-yel  { background: radial-gradient(circle at 35% 35%, #ffeaa780, #ffd32a60); }
+
+#diff-row { display: flex; gap: 8px; align-items: center; }
+.diff-label { font-size: 12px; color: rgba(255,255,255,0.4); }
+.diff-btn {
+  padding: 5px 14px; border-radius: 99px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.4);
+  font-size: 11px; font-weight: 700; cursor: pointer; transition: all 0.15s;
+}
+.diff-btn.active { background: rgba(116,185,255,0.18); border-color: #74b9ff; color: #74b9ff; }
+
+#new-btn {
+  background: linear-gradient(135deg, #0050ff, #0030c0);
+  color: white; border: none; padding: 11px 32px; border-radius: 99px;
+  font-size: 14px; font-weight: 700; cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0,80,255,0.35); transition: transform 0.15s;
+}
+#new-btn:hover { transform: scale(1.05); }
+
+/* Overlay */
+#overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.8);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 9999; backdrop-filter: blur(8px);
+}
+.ov-card {
+  background: linear-gradient(135deg, #000820, #001040);
+  border: 1px solid rgba(0,100,255,0.3); border-radius: 24px;
+  padding: 40px 48px; text-align: center; color: white; min-width: 280px;
+}
+.ov-emoji { font-size: 52px; margin-bottom: 10px; }
+.ov-title { font-size: 26px; font-weight: 800; margin-bottom: 6px; }
+.ov-sub { font-size: 14px; color: rgba(255,255,255,0.45); margin-bottom: 24px; }
+.ov-btn {
+  background: linear-gradient(135deg, #0050ff, #0030c0);
+  color: white; border: none; padding: 13px 44px; border-radius: 99px;
+  font-size: 16px; font-weight: 700; cursor: pointer;
+  box-shadow: 0 4px 20px rgba(0,80,255,0.4); transition: transform 0.15s;
+  width: 100%;
+}
+.ov-btn:hover { transform: scale(1.04); }
+</style>
+</head>
+<body>
+<a id="home-btn" href="index.html">← 홈</a>
+
+<div id="overlay">
+  <div class="ov-card" id="ov">
+    <div class="ov-emoji">🔴</div>
+    <div class="ov-title">Connect 4</div>
+    <div class="ov-sub">4개를 연속으로 놓으면 승리!<br>AI와 대전하세요.</div>
+    <button class="ov-btn" onclick="newGame()">게임 시작</button>
+  </div>
+</div>
+
+<div id="app">
+  <div id="scoreboard">
+    <div class="score-box red">
+      <div class="score-label">🔴 나</div>
+      <div class="score-val" id="score-p">0</div>
+    </div>
+    <div class="vs">VS</div>
+    <div class="score-box yel">
+      <div class="score-label">🟡 AI</div>
+      <div class="score-val" id="score-ai">0</div>
+    </div>
+  </div>
+
+  <div id="status">게임 시작을 눌러주세요</div>
+
+  <div id="board-outer">
+    <div id="col-hints"></div>
+    <div id="board"></div>
+  </div>
+
+  <div id="diff-row">
+    <span class="diff-label">AI 난이도:</span>
+    <button class="diff-btn active" onclick="setDiff(3,this)">쉬움</button>
+    <button class="diff-btn" onclick="setDiff(5,this)">보통</button>
+    <button class="diff-btn" onclick="setDiff(7,this)">어려움</button>
+  </div>
+
+  <button id="new-btn" onclick="newGame()">새 게임</button>
+</div>
+
+<script>
+const ROWS = 6, COLS = 7;
+const EMPTY = 0, PLAYER = 1, AI = 2;
+let board, turn, gameOver, aiDepth = 3;
+let scoreP = 0, scoreAI = 0;
+let hoverCol = -1;
+
+function setDiff(d, btn) {
+  aiDepth = d;
+  document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function newGame() {
+  document.getElementById('overlay').style.display = 'none';
+  board = Array.from({length:ROWS}, () => Array(COLS).fill(EMPTY));
+  turn = PLAYER; gameOver = false;
+  setStatus('🔴 당신의 차례');
+  render();
+}
+
+function render(winCells=[]) {
+  const boardEl = document.getElementById('board');
+  boardEl.innerHTML = '';
+  const winSet = new Set(winCells.map(([r,c])=>`${r},${c}`));
+
+  for (let r=0; r<ROWS; r++) {
+    for (let c=0; c<COLS; c++) {
+      const div = document.createElement('div');
+      div.className = 'cell';
+      const v = board[r][c];
+      if (v === PLAYER) { div.classList.add('red'); if (winSet.has(`${r},${c}`)) div.classList.add('win'); }
+      if (v === AI)     { div.classList.add('yel'); if (winSet.has(`${r},${c}`)) div.classList.add('win'); }
+      if (v === EMPTY && !gameOver && turn === PLAYER && c === hoverCol) {
+        div.classList.add(turn === PLAYER ? 'preview-red' : 'preview-yel');
+      }
+      div.addEventListener('click', () => playerMove(c));
+      boardEl.appendChild(div);
+    }
+  }
+
+  // Column hints
+  const hints = document.getElementById('col-hints');
+  hints.innerHTML = '';
+  for (let c=0; c<COLS; c++) {
+    const ch = document.createElement('div');
+    ch.className = 'ch';
+    ch.textContent = '▼';
+    ch.addEventListener('click', () => playerMove(c));
+    ch.addEventListener('mouseenter', () => { hoverCol=c; render(); });
+    ch.addEventListener('mouseleave', () => { hoverCol=-1; render(); });
+    hints.appendChild(ch);
+  }
+}
+
+function playerMove(col) {
+  if (gameOver || turn !== PLAYER) return;
+  const row = dropRow(board, col);
+  if (row < 0) return;
+  board[row][col] = PLAYER;
+  const win = checkWin(board, row, col, PLAYER);
+  render(win || []);
+  if (win) { scoreP++; updateScore(); endGame('🎉','당신이 이겼어요!','AI를 이겼습니다!'); return; }
+  if (isFull(board)) { endGame('🤝','무승부!','꽉 찼어요.'); return; }
+  turn = AI;
+  setStatus('🟡 AI가 생각 중...');
+  setTimeout(aiMove, 300);
+}
+
+function aiMove() {
+  const col = getBestMove(board, aiDepth);
+  const row = dropRow(board, col);
+  board[row][col] = AI;
+  const win = checkWin(board, row, col, AI);
+  render(win || []);
+  if (win) { scoreAI++; updateScore(); endGame('😢','AI가 이겼어요!','다시 도전해보세요!'); return; }
+  if (isFull(board)) { endGame('🤝','무승부!','꽉 찼어요.'); return; }
+  turn = PLAYER;
+  setStatus('🔴 당신의 차례');
+}
+
+function dropRow(b, col) {
+  for (let r=ROWS-1; r>=0; r--) if (b[r][col]===EMPTY) return r;
+  return -1;
+}
+
+function isFull(b) {
+  return b[0].every(v => v !== EMPTY);
+}
+
+function checkWin(b, r, c, p) {
+  const dirs = [[0,1],[1,0],[1,1],[1,-1]];
+  for (const [dr,dc] of dirs) {
+    const cells = [[r,c]];
+    for (let d=1; d<4; d++) {
+      const nr=r+dr*d, nc=c+dc*d;
+      if (nr<0||nr>=ROWS||nc<0||nc>=COLS||b[nr][nc]!==p) break;
+      cells.push([nr,nc]);
+    }
+    for (let d=1; d<4; d++) {
+      const nr=r-dr*d, nc=c-dc*d;
+      if (nr<0||nr>=ROWS||nc<0||nc>=COLS||b[nr][nc]!==p) break;
+      cells.push([nr,nc]);
+    }
+    if (cells.length >= 4) return cells.slice(0,4);
+  }
+  return null;
+}
+
+// ── Minimax AI ───────────────────────────────────────────
+function getBestMove(b, depth) {
+  let best = -Infinity, bestCol = 3;
+  for (const col of shuffledCols()) {
+    const row = dropRow(b, col);
+    if (row < 0) continue;
+    b[row][col] = AI;
+    const score = minimax(b, depth-1, -Infinity, Infinity, false);
+    b[row][col] = EMPTY;
+    if (score > best) { best = score; bestCol = col; }
+  }
+  return bestCol;
+}
+
+function minimax(b, depth, alpha, beta, maximizing) {
+  // Terminal checks
+  for (let r=0;r<ROWS;r++) for (let c=0;c<COLS;c++) {
+    if (b[r][c] === AI && checkWin(b,r,c,AI)) return 100000 + depth;
+    if (b[r][c] === PLAYER && checkWin(b,r,c,PLAYER)) return -100000 - depth;
+  }
+  if (depth === 0 || isFull(b)) return evalBoard(b);
+
+  if (maximizing) {
+    let val = -Infinity;
+    for (const col of shuffledCols()) {
+      const row = dropRow(b, col);
+      if (row < 0) continue;
+      b[row][col] = AI;
+      val = Math.max(val, minimax(b, depth-1, alpha, beta, false));
+      b[row][col] = EMPTY;
+      alpha = Math.max(alpha, val);
+      if (alpha >= beta) break;
+    }
+    return val;
+  } else {
+    let val = Infinity;
+    for (const col of shuffledCols()) {
+      const row = dropRow(b, col);
+      if (row < 0) continue;
+      b[row][col] = PLAYER;
+      val = Math.min(val, minimax(b, depth-1, alpha, beta, true));
+      b[row][col] = EMPTY;
+      beta = Math.min(beta, val);
+      if (alpha >= beta) break;
+    }
+    return val;
+  }
+}
+
+function shuffledCols() {
+  // Center-first ordering improves alpha-beta pruning
+  return [3,2,4,1,5,0,6];
+}
+
+function evalBoard(b) {
+  let score = 0;
+  // Center column preference
+  const center = b.map(r => r[3]).filter(v => v === AI).length;
+  score += center * 6;
+
+  const dirs = [[0,1],[1,0],[1,1],[1,-1]];
+  for (let r=0; r<ROWS; r++) {
+    for (let c=0; c<COLS; c++) {
+      for (const [dr,dc] of dirs) {
+        score += evalWindow(b, r, c, dr, dc);
+      }
+    }
+  }
+  return score;
+}
+
+function evalWindow(b, r, c, dr, dc) {
+  let aiCount=0, playerCount=0;
+  const cells = [];
+  for (let i=0;i<4;i++) {
+    const nr=r+dr*i, nc=c+dc*i;
+    if (nr<0||nr>=ROWS||nc<0||nc>=COLS) return 0;
+    cells.push(b[nr][nc]);
+  }
+  aiCount = cells.filter(v=>v===AI).length;
+  playerCount = cells.filter(v=>v===PLAYER).length;
+  if (aiCount>0 && playerCount>0) return 0;
+  if (aiCount===4) return 10000;
+  if (aiCount===3) return 50;
+  if (aiCount===2) return 10;
+  if (playerCount===4) return -10000;
+  if (playerCount===3) return -80;
+  if (playerCount===2) return -10;
+  return 0;
+}
+
+function setStatus(msg) { document.getElementById('status').textContent = msg; }
+function updateScore() {
+  document.getElementById('score-p').textContent = scoreP;
+  document.getElementById('score-ai').textContent = scoreAI;
+}
+
+function endGame(e, t, s) {
+  gameOver = true;
+  document.querySelector('#ov .ov-emoji').textContent = e;
+  document.querySelector('#ov .ov-title').textContent = t;
+  document.querySelector('#ov .ov-sub').textContent = s;
+  document.querySelector('#ov .ov-btn').textContent = '다시 하기';
+  document.getElementById('overlay').style.display = 'flex';
+}
+</script>
+</body>
+</html>
