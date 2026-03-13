@@ -370,11 +370,6 @@ function inputNum(n) {
   if (isSolved()) win();
 }
 
-function updateNumpadActive() {
-  document.querySelectorAll('.nkey[data-num]').forEach(btn => {
-    btn.classList.toggle('active', +btn.dataset.num === selectedNum);
-  });
-}
 
 function updateNumpadCompletion() {
   const counts = {};
