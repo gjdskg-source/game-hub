@@ -453,9 +453,9 @@ function formatTime(s) {
 document.addEventListener('keydown', e => {
   if (!selected || !gameActive) return;
   const [r, c] = selected;
-  if (e.key >= '1' && e.key <= '9') inputNum(+e.key);
-  if (SIZE === 16 && e.key >= 'a' && e.key <= 'g') inputNum(e.key.charCodeAt(0)-87);
-  if (e.key === 'Backspace' || e.key === 'Delete') inputNum(0);
+  if (e.key >= '1' && e.key <= '9') { selectedNum = +e.key; inputNum(+e.key); updateNumpadActive(); }
+  if (SIZE === 16 && e.key >= 'a' && e.key <= 'g') { selectedNum = e.key.charCodeAt(0)-87; inputNum(selectedNum); updateNumpadActive(); }
+  if (e.key === 'Backspace' || e.key === 'Delete') { selectedNum = 0; inputNum(0); updateNumpadActive(); }
   if (e.key === 'ArrowUp'    && r > 0)      { selected=[r-1,c]; render(); }
   if (e.key === 'ArrowDown'  && r < SIZE-1) { selected=[r+1,c]; render(); }
   if (e.key === 'ArrowLeft'  && c > 0)      { selected=[r,c-1]; render(); }
