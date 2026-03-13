@@ -98,6 +98,27 @@ body {
 .nkey:hover { background: rgba(46,213,115,0.2); border-color: #2ed573; }
 .nkey.del { font-size: 14px; color: #ff6b81; border-color: rgba(255,107,129,0.3); }
 .nkey.hint-btn { font-size: 13px; color: #ffd32a; border-color: rgba(255,211,32,0.3); width: auto; padding: 0 12px; }
+.nkey.done {
+  opacity: 0.35;
+  background: rgba(46,213,115,0.07);
+  border-color: rgba(46,213,115,0.25);
+  color: #2ed573;
+  cursor: default;
+  position: relative;
+}
+.nkey.done::after {
+  content: '✓';
+  position: absolute;
+  top: -5px; right: -5px;
+  width: 15px; height: 15px;
+  background: #2ed573;
+  border-radius: 50%;
+  font-size: 9px; font-weight: 900;
+  color: #000;
+  display: flex; align-items: center; justify-content: center;
+  line-height: 15px; text-align: center;
+}
+.nkey.done:hover { background: rgba(46,213,115,0.07); border-color: rgba(46,213,115,0.25); }
 
 /* Action row */
 #actions { display: flex; gap: 8px; }
