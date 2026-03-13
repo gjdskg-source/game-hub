@@ -240,7 +240,6 @@ function newGame() {
   timerIV = setInterval(() => { timerSec++; updateTimer(); }, 1000);
   gameActive = true;
   selected = null;
-  selectedNum = 0;
 
   // Generate solution
   sol = Array.from({length:SIZE}, () => Array(SIZE).fill(0));
