@@ -347,7 +347,7 @@ function buildNumpad() {
     btn.className = 'nkey';
     btn.textContent = SIZE === 16 && n > 9 ? String.fromCharCode(55+n) : n;
     btn.dataset.num = n;
-    btn.onclick = () => { selectedNum = selectedNum === n ? 0 : n; inputNum(n); updateNumpadActive(); };
+    btn.onclick = () => { selectedNum = selectedNum === n ? 0 : n; inputNum(n); };
     np.appendChild(btn);
   }
   const del = document.createElement('button');
