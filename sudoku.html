@@ -323,7 +323,9 @@ function render() {
         // Error check
         if (!isGiven && v !== sol[r][c]) div.classList.add('error');
         // Same number highlight
-        if (selNum && v === selNum) div.classList.add('same-num');
+        if (selNum && v === selNum) {
+          div.classList.add(selectedNum ? 'same-num-active' : 'same-num');
+        }
       }
 
       if (selected && selected[0]===r && selected[1]===c) div.classList.add('selected');
