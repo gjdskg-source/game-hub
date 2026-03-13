@@ -353,7 +353,7 @@ function buildNumpad() {
   }
   const del = document.createElement('button');
   del.className = 'nkey del'; del.textContent = '⌫';
-  del.onclick = () => inputNum(0);
+  del.onclick = () => { selectedNum = 0; inputNum(0); updateNumpadActive(); };
   np.appendChild(del);
 }
 
