@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>📐 Sudoku</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  background: linear-gradient(135deg, #0a0f1a, #0f1a0a, #0a0f1a);
+  min-height: 100vh;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Segoe UI', sans-serif;
+  color: white;
+}
+#home-btn {
+  position: fixed; top: 18px; left: 18px;
+  background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 10px; padding: 8px 14px;
+  color: rgba(255,255,255,0.6); font-size: 13px;
+  text-decoration: none; transition: all 0.2s; backdrop-filter: blur(4px); z-index: 9000;
+}
+#home-btn:hover { background: rgba(255,255,255,0.15); color: white; }
+
+#app { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+
+/* Top bar */
+#topbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.pill {
+  background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 99px; padding: 6px 16px;
+  font-size: 13px; font-weight: 600; color: white;
+}
+.pill span { color: #7bed9f; font-weight: 800; }
+
+/* Mode tabs */
+#mode-tabs { display: flex; gap: 6px; }
+.tab {
+  padding: 7px 16px; border-radius: 99px; border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.5);
+  font-size: 12px; font-weight: 700; cursor: pointer; transition: all 0.15s;
+}
+.tab.active { background: rgba(46,213,115,0.2); border-color: #2ed573; color: #2ed573; }
+
+/* Difficulty */
+#diff-tabs { display: flex; gap: 6px; }
+.dtab {
+  padding: 6px 14px; border-radius: 99px; border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.4);
+  font-size: 11px; font-weight: 700; cursor: pointer; transition: all 0.15s;
+}
+.dtab.active { background: rgba(116,185,255,0.2); border-color: #74b9ff; color: #74b9ff; }
+
+/* Board */
+#board-wrap {
+  border: 2px solid rgba(46,213,115,0.3);
+  border-radius: 10px; padding: 6px;
+  background: rgba(0,0,0,0.3);
+  box-shadow: 0 0 30px rgba(46,213,115,0.1);
+}
+#board { display: grid; gap: 0; }
+#board.s9  { grid-template-columns: repeat(9,  44px); }
+#board.s16 { grid-template-columns: repeat(16, 34px); }
+
+.cell {
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; cursor: pointer; transition: background 0.1s;
+  border: 1px solid rgba(255,255,255,0.08);
+  position: relative; user-select: none;
+}
+#board.s9  .cell { width: 44px; height: 44px; font-size: 20px; }
+#board.s16 .cell { width: 34px; height: 34px; font-size: 14px; }
+
+.cell.given { color: #7bed9f; }
+.cell.user  { color: #74b9ff; }
+.cell.error { color: #ff4757 !important; background: rgba(255,71,87,0.12) !important; }
+.cell.selected { background: rgba(46,213,115,0.18); }
+.cell.same-num { background: rgba(116,185,255,0.1); }
+.cell.highlight { background: rgba(255,255,255,0.05); }
+
+/* Box borders for 9x9 */
+#board.s9  .cell:nth-child(3n)   { border-right: 2px solid rgba(46,213,115,0.4); }
+#board.s9  .cell:nth-child(9n)   { border-right: 1px solid rgba(255,255,255,0.08); }
+.row-border-9  { border-bottom: 2px solid rgba(46,213,115,0.4) !important; }
+/* Box borders for 16x16 */
+#board.s16 .cell:nth-child(4n)   { border-right: 2px solid rgba(46,213,115,0.35); }
+#board.s16 .cell:nth-child(16n)  { border-right: 1px solid rgba(255,255,255,0.08); }
+.row-border-16 { border-bottom: 2px solid rgba(46,213,115,0.35) !important; }
+
+/* Numpad */
+#numpad { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; max-width: 420px; }
+.nkey {
+  width: 44px; height: 44px; border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.05); color: white;
+  font-size: 18px; font-weight: 800; cursor: pointer; transition: all 0.12s;
+}
+.nkey:hover { background: rgba(46,213,115,0.2); border-color: #2ed573; }
+.nkey.del { font-size: 14px; color: #ff6b81; border-color: rgba(255,107,129,0.3); }
+.nkey.hint-btn { font-size: 13px; color: #ffd32a; border-color: rgba(255,211,32,0.3); width: auto; padding: 0 12px; }
+
+/* Action row */
+#actions { display: flex; gap: 8px; }
+.act-btn {
+  padding: 9px 20px; border-radius: 99px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.06); color: white;
+  font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.15s;
+}
+.act-btn:hover { background: rgba(255,255,255,0.12); }
+.act-btn.primary {
+  background: linear-gradient(135deg, #00b894, #00a381);
+  border-color: transparent;
+  box-shadow: 0 4px 16px rgba(0,184,148,0.3);
+}
+
+/* Overlay */
+#overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.8);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 9999; backdrop-filter: blur(8px);
+}
+.ov-card {
+  background: linear-gradient(135deg, #0a1500, #0a1500);
+  border: 1px solid rgba(46,213,115,0.25); border-radius: 24px;
+  padding: 40px 48px; text-align: center; color: white;
+}
+.ov-emoji { font-size: 52px; margin-bottom: 10px; }
+.ov-title { font-size: 26px; font-weight: 800; margin-bottom: 6px; }
+.ov-sub { font-size: 14px; color: rgba(255,255,255,0.45); margin-bottom: 24px; line-height: 1.7; }
+.ov-btn {
+  background: linear-gradient(135deg, #00b894, #00a381);
+  color: white; border: none; padding: 13px 44px; border-radius: 99px;
+  font-size: 16px; font-weight: 700; cursor: pointer;
+  box-shadow: 0 4px 20px rgba(0,184,148,0.4); transition: transform 0.15s;
+}
+.ov-btn:hover { transform: scale(1.05); }
+</style>
+</head>
+<body>
+<a id="home-btn" href="index.html">← 홈</a>
+
+<div id="overlay">
+  <div class="ov-card" id="ov">
+    <div class="ov-emoji">📐</div>
+    <div class="ov-title">Sudoku</div>
+    <div class="ov-sub">빈 칸에 숫자를 채워 완성하세요.<br>각 행·열·박스에 같은 숫자 중복 불가!</div>
+    <button class="ov-btn" onclick="newGame()">시작하기</button>
+  </div>
+</div>
+
+<div id="app">
+  <div id="topbar">
+    <div class="pill">⏱ <span id="timer">0:00</span></div>
+    <div class="pill">❌ <span id="errs">0</span>/5</div>
+    <div class="pill">💡 <span id="hints">3</span></div>
+  </div>
+
+  <div id="mode-tabs">
+    <button class="tab active" onclick="setMode(9,this)">9×9</button>
+    <button class="tab" onclick="setMode(16,this)">16×16 확장</button>
+  </div>
+
+  <div id="diff-tabs">
+    <button class="dtab active" onclick="setDiff('easy',this)">쉬움</button>
+    <button class="dtab" onclick="setDiff('medium',this)">보통</button>
+    <button class="dtab" onclick="setDiff('hard',this)">어려움</button>
+  </div>
+
+  <div id="board-wrap">
+    <div id="board" class="s9"></div>
+  </div>
+
+  <div id="numpad"></div>
+
+  <div id="actions">
+    <button class="act-btn" onclick="newGame()">새 게임</button>
+    <button class="act-btn" onclick="useHint()">💡 힌트</button>
+    <button class="act-btn primary" onclick="checkSolution()">정답 확인</button>
+  </div>
+</div>
+
+<script>
+let SIZE = 9, BOX = 3;
+let diff = 'easy';
+let sol = [], puzzle = [], userGrid = [];
+let selected = null;
+let errors = 0, hintsLeft = 3;
+let timerSec = 0, timerIV = null;
+let gameActive = false;
+
+const GIVENS = {
+  easy:   { 9: 38, 16: 140 },
+  medium: { 9: 28, 16: 120 },
+  hard:   { 9: 22, 16: 100 },
+};
+
+function setMode(s, btn) {
+  SIZE = s; BOX = s === 9 ? 3 : 4;
+  document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('board').className = `s${SIZE}`;
+  newGame();
+}
+
+function setDiff(d, btn) {
+  diff = d;
+  document.querySelectorAll('.dtab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  newGame();
+}
+
+// ── Puzzle Generation ─────────────────────────────────────
+function newGame() {
+  document.getElementById('overlay').style.display = 'none';
+  errors = 0; hintsLeft = 3;
+  updateInfoBar();
+  clearInterval(timerIV);
+  timerSec = 0; updateTimer();
+  timerIV = setInterval(() => { timerSec++; updateTimer(); }, 1000);
+  gameActive = true;
+  selected = null;
+
+  // Generate solution
+  sol = Array.from({length:SIZE}, () => Array(SIZE).fill(0));
+  fillBoard(sol);
+
+  // Create puzzle
+  puzzle = sol.map(r => [...r]);
+  const givens = GIVENS[diff][SIZE];
+  let toRemove = SIZE*SIZE - givens;
+  while (toRemove > 0) {
+    const r = Math.floor(Math.random()*SIZE);
+    const c = Math.floor(Math.random()*SIZE);
+    if (puzzle[r][c] !== 0) { puzzle[r][c] = 0; toRemove--; }
+  }
+
+  userGrid = puzzle.map(r => [...r]);
+  buildNumpad();
+  render();
+}
+
+function fillBoard(grid) {
+  const nums = shuffle([...Array(SIZE)].map((_,i)=>i+1));
+  return backtrack(grid, 0, nums);
+}
+
+function backtrack(grid, pos, nums) {
+  if (pos === SIZE*SIZE) return true;
+  const r = Math.floor(pos/SIZE), c = pos%SIZE;
+  if (grid[r][c] !== 0) return backtrack(grid, pos+1, nums);
+  const order = shuffle([...nums]);
+  for (const n of order) {
+    if (isValid(grid, r, c, n)) {
+      grid[r][c] = n;
+      if (backtrack(grid, pos+1, nums)) return true;
+      grid[r][c] = 0;
+    }
+  }
+  return false;
+}
+
+function isValid(grid, r, c, n) {
+  for (let i=0;i<SIZE;i++) if (grid[r][i]===n||grid[i][c]===n) return false;
+  const br=Math.floor(r/BOX)*BOX, bc=Math.floor(c/BOX)*BOX;
+  for (let i=0;i<BOX;i++) for (let j=0;j<BOX;j++) if (grid[br+i][bc+j]===n) return false;
+  return true;
+}
+
+function shuffle(arr) {
+  for (let i=arr.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]];}
+  return arr;
+}
+
+// ── Render ───────────────────────────────────────────────
+function render() {
+  const board = document.getElementById('board');
+  board.innerHTML = '';
+  const selNum = selected ? userGrid[selected[0]][selected[1]] : 0;
+
+  for (let r=0; r<SIZE; r++) {
+    for (let c=0; c<SIZE; c++) {
+      const div = document.createElement('div');
+      div.className = 'cell';
+      const v = userGrid[r][c];
+      const isGiven = puzzle[r][c] !== 0;
+
+      if (v !== 0) {
+        div.textContent = SIZE === 16 ? (v > 9 ? String.fromCharCode(55+v) : v) : v;
+        if (isGiven) div.classList.add('given');
+        else div.classList.add('user');
+        // Error check
+        if (!isGiven && v !== sol[r][c]) div.classList.add('error');
+        // Same number highlight
+        if (selNum && v === selNum) div.classList.add('same-num');
+      }
+
+      if (selected && selected[0]===r && selected[1]===c) div.classList.add('selected');
+      else if (selected && (selected[0]===r || selected[1]===c ||
+        (Math.floor(r/BOX)===Math.floor(selected[0]/BOX) && Math.floor(c/BOX)===Math.floor(selected[1]/BOX))))
+        div.classList.add('highlight');
+
+      // Box borders
+      if (SIZE === 9 && r % 3 === 2 && r < SIZE-1) div.classList.add('row-border-9');
+      if (SIZE === 16 && r % 4 === 3 && r < SIZE-1) div.classList.add('row-border-16');
+
+      div.addEventListener('click', () => { selected = [r, c]; render(); });
+      board.appendChild(div);
+    }
+  }
+}
+
+function buildNumpad() {
+  const np = document.getElementById('numpad');
+  np.innerHTML = '';
+  const max = SIZE === 16 ? 16 : 9;
+  for (let n=1; n<=max; n++) {
+    const btn = document.createElement('button');
+    btn.className = 'nkey';
+    btn.textContent = SIZE === 16 && n > 9 ? String.fromCharCode(55+n) : n;
+    btn.onclick = () => inputNum(n);
+    np.appendChild(btn);
+  }
+  const del = document.createElement('button');
+  del.className = 'nkey del'; del.textContent = '⌫';
+  del.onclick = () => inputNum(0);
+  np.appendChild(del);
+}
+
+function inputNum(n) {
+  if (!selected || !gameActive) return;
+  const [r, c] = selected;
+  if (puzzle[r][c] !== 0) return; // given cell
+  userGrid[r][c] = n;
+  if (n !== 0 && n !== sol[r][c]) {
+    errors++;
+    updateInfoBar();
+    if (errors >= 5) { gameOver(); return; }
+  }
+  render();
+  if (isSolved()) win();
+}
+
+function isSolved() {
+  for (let r=0;r<SIZE;r++) for (let c=0;c<SIZE;c++) if (userGrid[r][c]!==sol[r][c]) return false;
+  return true;
+}
+
+function useHint() {
+  if (hintsLeft <= 0 || !gameActive) return;
+  // Find a random empty/wrong cell
+  const wrong = [];
+  for (let r=0;r<SIZE;r++) for (let c=0;c<SIZE;c++)
+    if (userGrid[r][c]!==sol[r][c]) wrong.push([r,c]);
+  if (!wrong.length) return;
+  const [r,c] = wrong[Math.floor(Math.random()*wrong.length)];
+  userGrid[r][c] = sol[r][c];
+  hintsLeft--; updateInfoBar();
+  selected = [r,c]; render();
+  if (isSolved()) win();
+}
+
+function checkSolution() {
+  let wrong = 0;
+  for (let r=0;r<SIZE;r++) for (let c=0;c<SIZE;c++)
+    if (userGrid[r][c]!==0 && userGrid[r][c]!==sol[r][c]) wrong++;
+  if (wrong === 0) {
+    const empty = SIZE*SIZE - [...userGrid.flat()].filter(v=>v!==0).length;
+    alert(empty > 0 ? `틀린 곳 없음! 아직 ${empty}칸 남았어요.` : '완벽해요! 모두 맞습니다 🎉');
+  } else {
+    alert(`${wrong}개 틀렸어요. 다시 확인해보세요.`);
+  }
+}
+
+function win() {
+  gameActive = false; clearInterval(timerIV);
+  showEnd('🎉', '완성!', `시간: ${formatTime(timerSec)}\n난이도: ${diff} | ${SIZE}×${SIZE}`);
+}
+function gameOver() {
+  gameActive = false; clearInterval(timerIV);
+  showEnd('😢', '게임 오버', '오류 5번으로 게임이 종료됐어요.');
+}
+
+function showEnd(e, t, s) {
+  document.querySelector('#ov .ov-emoji').textContent = e;
+  document.querySelector('#ov .ov-title').textContent = t;
+  document.querySelector('#ov .ov-sub').textContent = s;
+  document.querySelector('#ov .ov-btn').textContent = '다시 하기';
+  document.getElementById('overlay').style.display = 'flex';
+}
+
+function updateInfoBar() {
+  document.getElementById('errs').textContent = errors;
+  document.getElementById('hints').textContent = hintsLeft;
+}
+function updateTimer() {
+  document.getElementById('timer').textContent = formatTime(timerSec);
+}
+function formatTime(s) {
+  return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+}
+
+// Keyboard
+document.addEventListener('keydown', e => {
+  if (!selected || !gameActive) return;
+  const [r, c] = selected;
+  if (e.key >= '1' && e.key <= '9') inputNum(+e.key);
+  if (SIZE === 16 && e.key >= 'a' && e.key <= 'g') inputNum(e.key.charCodeAt(0)-87);
+  if (e.key === 'Backspace' || e.key === 'Delete') inputNum(0);
+  if (e.key === 'ArrowUp'    && r > 0)      { selected=[r-1,c]; render(); }
+  if (e.key === 'ArrowDown'  && r < SIZE-1) { selected=[r+1,c]; render(); }
+  if (e.key === 'ArrowLeft'  && c > 0)      { selected=[r,c-1]; render(); }
+  if (e.key === 'ArrowRight' && c < SIZE-1) { selected=[r,c+1]; render(); }
+  e.preventDefault();
+});
+
+newGame();
+</script>
+</body>
+</html>
