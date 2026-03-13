@@ -473,6 +473,33 @@ footer {
       </div>
     </a>
 
+    <a class="card" href="tetris.html" data-genre="puzzle">
+      <div class="card-thumb-wrap">
+        <div class="card-thumb" style="background: linear-gradient(135deg, #050510, #1a0040);">
+          🎮
+        </div>
+        <div class="play-btn">
+          <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+        </div>
+        <div class="badge-row">
+          <span class="badge badge-new">NEW</span>
+          <span class="badge badge-hard">어려움</span>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="card-genre" style="color:#c200ff;">🧩 퍼즐</div>
+        <div class="card-title">Tetris</div>
+        <div class="card-desc">클래식 · 스프린트(40줄) · 울트라(2분) 3가지 모드. SRS 회전, 고스트 피스, 홀드 지원!</div>
+        <div class="card-footer">
+          <div class="card-controls">
+            <span class="ctrl-tag">← →</span>
+            <span class="ctrl-tag">Space</span>
+          </div>
+          <div class="card-score">최고점 <span id="best-tetris">—</span></div>
+        </div>
+      </div>
+    </a>
+
   </div>
 
   <footer>
@@ -501,6 +528,7 @@ function loadBests() {
     'best_2048':   'best-2048',
     'best_flappy': 'best-flappy',
     'best_brick':  'best-brick',
+    'best_tetris_classic': 'best-tetris',
   };
   for (const [key, id] of Object.entries(bests)) {
     const v = localStorage.getItem(key);

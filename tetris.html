@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎮 Tetris</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  background: linear-gradient(135deg, #050510, #0d0020, #050510);
+  min-height: 100vh;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Segoe UI', sans-serif;
+  overflow: hidden;
+}
+#home-btn {
+  position: fixed; top: 18px; left: 18px;
+  background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 10px; padding: 8px 14px;
+  color: rgba(255,255,255,0.6); font-size: 13px;
+  text-decoration: none; transition: all 0.2s; backdrop-filter: blur(4px); z-index: 9000;
+}
+#home-btn:hover { background: rgba(255,255,255,0.15); color: white; }
+
+#game-area { display: flex; gap: 12px; align-items: flex-start; }
+
+canvas#c {
+  display: block;
+  border-radius: 10px;
+  border: 1px solid rgba(148,0,255,0.3);
+  box-shadow: 0 0 40px rgba(100,0,255,0.2), 0 20px 60px rgba(0,0,0,0.7);
+}
+
+.side { display: flex; flex-direction: column; gap: 10px; width: 100px; }
+
+.info-box {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px; padding: 8px 12px;
+  color: white; width: 100%;
+}
+.info-label { font-size: 9px; color: rgba(255,255,255,0.35); letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 3px; }
+.info-val { font-size: 18px; font-weight: 800; }
+.info-val.sm { font-size: 14px; }
+.timer-val { color: #00f5ff; }
+
+.mini-canvas { display: block; margin-top: 5px; border-radius: 4px; }
+
+.key-box {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 10px; padding: 8px 10px;
+  font-size: 10px; color: rgba(255,255,255,0.25); line-height: 1.9; width: 100%;
+}
+
+/* Overlay */
+#overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.85);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 9999; backdrop-filter: blur(10px);
+}
+#ov-card {
+  background: linear-gradient(135deg, #080010, #14002a);
+  border: 1px solid rgba(148,0,255,0.25);
+  border-radius: 24px; padding: 36px 44px;
+  text-align: center; color: white; min-width: 300px;
+}
+#ov-emoji { font-size: 52px; margin-bottom: 8px; }
+#ov-title { font-size: 26px; font-weight: 800; margin-bottom: 6px; }
+#ov-sub { font-size: 13px; color: rgba(255,255,255,0.45); margin-bottom: 20px; line-height: 1.7; white-space: pre-line; }
+
+.mode-row { display: flex; gap: 8px; justify-content: center; margin-bottom: 18px; }
+.mode-btn {
+  padding: 10px 14px; border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.05); color: white;
+  font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.15s;
+  display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 80px;
+}
+.mode-btn:hover { background: rgba(255,255,255,0.1); transform: scale(1.04); }
+.mode-btn.selected { border-color: rgba(148,0,255,0.6); background: rgba(148,0,255,0.18); }
+.mode-btn .me { font-size: 20px; }
+.mode-btn .mn { font-size: 12px; }
+.mode-btn .md { font-size: 10px; color: rgba(255,255,255,0.35); }
+
+#ov-btn {
+  background: linear-gradient(135deg, #9400ff, #6200ea);
+  color: white; border: none; padding: 12px 40px; border-radius: 99px;
+  font-size: 15px; font-weight: 700; cursor: pointer;
+  box-shadow: 0 4px 20px rgba(148,0,255,0.4); transition: transform 0.15s; width: 100%;
+}
+#ov-btn:hover { transform: scale(1.03); }
+#ov-hint { margin-top: 12px; font-size: 11px; color: rgba(255,255,255,0.25); }
+</style>
+</head>
+<body>
+<a id="home-btn" href="index.html">← 홈</a>
+
+<div id="overlay">
+  <div id="ov-card">
+    <div id="ov-emoji">🎮</div>
+    <div id="ov-title">Tetris</div>
+    <div id="ov-sub">모드를 선택하세요</div>
+    <div class="mode-row">
+      <button class="mode-btn selected" onclick="selectMode('classic',this)">
+        <span class="me">♾️</span><span class="mn">클래식</span><span class="md">무한 플레이</span>
+      </button>
+      <button class="mode-btn" onclick="selectMode('sprint',this)">
+        <span class="me">🏃</span><span class="mn">스프린트</span><span class="md">40줄 최속</span>
+      </button>
+      <button class="mode-btn" onclick="selectMode('ultra',this)">
+        <span class="me">⚡</span><span class="mn">울트라</span><span class="md">2분 최고점</span>
+      </button>
+    </div>
+    <button id="ov-btn" onclick="startGame()">시작하기</button>
+    <div id="ov-hint">← → 이동 | ↑/Z 회전 | Space 하드드롭 | C 홀드 | P 일시정지</div>
+  </div>
+</div>
+
+<div id="game-area">
+  <!-- Left -->
+  <div class="side">
+    <div class="info-box">
+      <div class="info-label">Score</div>
+      <div class="info-val" id="score">0</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">Best</div>
+      <div class="info-val sm" id="best">0</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">Level</div>
+      <div class="info-val" id="level">1</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">Lines</div>
+      <div class="info-val" id="lines">0</div>
+    </div>
+    <div class="info-box" id="timer-box" style="display:none">
+      <div class="info-label" id="timer-label">Time</div>
+      <div class="info-val timer-val" id="timer">0:00</div>
+    </div>
+    <div class="key-box">
+      ← → 이동<br>↑/Z 회전↻<br>X 회전↺<br>↓ 소프트<br>Space 하드<br>C 홀드<br>P 정지
+    </div>
+  </div>
+
+  <!-- Board -->
+  <canvas id="c" width="300" height="600"></canvas>
+
+  <!-- Right -->
+  <div class="side">
+    <div class="info-box">
+      <div class="info-label">Next</div>
+      <canvas id="next-c" class="mini-canvas" width="88" height="88"></canvas>
+    </div>
+    <div class="info-box">
+      <div class="info-label">Hold (C)</div>
+      <canvas id="hold-c" class="mini-canvas" width="88" height="88"></canvas>
+    </div>
+    <div class="info-box" id="combo-box" style="display:none">
+      <div class="info-label">Combo</div>
+      <div class="info-val" id="combo" style="color:#ffd32a">0x</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">Mode</div>
+      <div class="info-val sm" id="mode-disp">Classic</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const c    = document.getElementById('c');
+const ctx  = c.getContext('2d');
+const nc   = document.getElementById('next-c');
+const nctx = nc.getContext('2d');
+const hc   = document.getElementById('hold-c');
+const hctx = hc.getContext('2d');
+const W = c.width, H = c.height;
+const COLS = 10, ROWS = 20, CS = 30;
+
+// ── Pieces ───────────────────────────────────────────────
+const PIECES = {
+  I: { shape:[[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]], color:'#00f5ff', glow:'rgba(0,245,255,0.5)' },
+  O: { shape:[[1,1],[1,1]],                               color:'#ffd32a', glow:'rgba(255,211,32,0.5)' },
+  T: { shape:[[0,1,0],[1,1,1],[0,0,0]],                  color:'#c200ff', glow:'rgba(194,0,255,0.5)' },
+  S: { shape:[[0,1,1],[1,1,0],[0,0,0]],                  color:'#2ed573', glow:'rgba(46,213,115,0.5)' },
+  Z: { shape:[[1,1,0],[0,1,1],[0,0,0]],                  color:'#ff4757', glow:'rgba(255,71,87,0.5)'  },
+  J: { shape:[[1,0,0],[1,1,1],[0,0,0]],                  color:'#4a90ff', glow:'rgba(74,144,255,0.5)' },
+  L: { shape:[[0,0,1],[1,1,1],[0,0,0]],                  color:'#ff8c00', glow:'rgba(255,140,0,0.5)'  },
+};
+const KEYS = Object.keys(PIECES);
+
+// SRS Wall Kicks
+const KICKS_N = [
+  [[ 0,0],[-1,0],[-1, 1],[ 0,-2],[-1,-2]],
+  [[ 0,0],[ 1,0],[ 1,-1],[ 0, 2],[ 1, 2]],
+  [[ 0,0],[ 1,0],[ 1, 1],[ 0,-2],[ 1,-2]],
+  [[ 0,0],[-1,0],[-1,-1],[ 0, 2],[-1, 2]],
+];
+const KICKS_I = [
+  [[ 0,0],[-2,0],[ 1,0],[-2,-1],[ 1, 2]],
+  [[ 0,0],[-1,0],[ 2,0],[-1, 2],[ 2,-1]],
+  [[ 0,0],[ 2,0],[-1,0],[ 2, 1],[-1,-2]],
+  [[ 0,0],[ 1,0],[-2,0],[ 1,-2],[-2, 1]],
+];
+
+// ── State ────────────────────────────────────────────────
+let board, score, level, lines, bag;
+let current, nextPiece, hold, holdUsed;
+let gameState = 'idle';
+let selMode = 'classic', curMode;
+let raf, lastTime = 0, dropAccum = 0, dropInterval;
+let lockTimer = null, combo = 0, comboTO;
+let gameTimer = 0, timerIV = null;
+
+const BESTS = {
+  classic: +localStorage.getItem('best_tetris_classic') || 0,
+  sprint:  +localStorage.getItem('best_tetris_sprint')  || Infinity,
+  ultra:   +localStorage.getItem('best_tetris_ultra')   || 0,
+};
+
+function fmtTime(ms) {
+  const s = Math.floor(ms/1000), m = Math.floor(s/60);
+  return `${m}:${String(s%60).padStart(2,'0')}`;
+}
+
+// ── Mode select ──────────────────────────────────────────
+function selectMode(m, btn) {
+  selMode = m;
+  document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+}
+
+// ── Start ────────────────────────────────────────────────
+function startGame() {
+  document.getElementById('overlay').style.display = 'none';
+  curMode = selMode;
+  board = Array.from({length:ROWS}, () => Array(COLS).fill(0));
+  score = 0; level = 1; lines = 0; combo = 0;
+  bag = shuffle(); hold = null; holdUsed = false;
+  gameTimer = 0; dropAccum = 0; lastTime = 0;
+  current = spawn(fromBag());
+  nextPiece = fromBag();
+  gameState = 'playing';
+
+  const mNames = { classic:'Classic', sprint:'Sprint', ultra:'Ultra' };
+  document.getElementById('mode-disp').textContent = mNames[curMode];
+
+  const tb = document.getElementById('timer-box');
+  if (curMode !== 'classic') {
+    tb.style.display = 'block';
+    document.getElementById('timer-label').textContent = curMode === 'ultra' ? 'Time Left' : 'Time';
+  } else {
+    tb.style.display = 'none';
+  }
+
+  const bestEl = document.getElementById('best');
+  bestEl.textContent = curMode === 'sprint'
+    ? (BESTS.sprint === Infinity ? '—' : fmtTime(BESTS.sprint))
+    : (BESTS[curMode] || 0);
+
+  updateHUD();
+  drawNext(); drawHold();
+  cancelAnimationFrame(raf);
+  clearInterval(timerIV);
+  dropInterval = getDI();
+  raf = requestAnimationFrame(loop);
+
+  if (curMode !== 'classic') {
+    timerIV = setInterval(() => {
+      if (gameState !== 'playing') return;
+      gameTimer += 100;
+      if (curMode === 'ultra') {
+        const left = 120000 - gameTimer;
+        document.getElementById('timer').textContent = fmtTime(Math.max(0, left));
+        if (left <= 0) endUltra();
+      } else {
+        document.getElementById('timer').textContent = fmtTime(gameTimer);
+      }
+    }, 100);
+  }
+}
+
+// ── Bag ──────────────────────────────────────────────────
+function shuffle() {
+  const b = [...KEYS];
+  for (let i = b.length-1; i > 0; i--) {
+    const j = Math.floor(Math.random()*(i+1));
+    [b[i],b[j]] = [b[j],b[i]];
+  }
+  return b;
+}
+function fromBag() {
+  if (!bag.length) bag = shuffle();
+  return bag.shift();
+}
+
+// ── Piece ────────────────────────────────────────────────
+function spawn(type) {
+  const p = PIECES[type];
+  return {
+    type, color: p.color, glow: p.glow, rot: 0,
+    shape: p.shape.map(r => [...r]),
+    x: Math.floor((COLS - p.shape[0].length) / 2),
+    y: 0,
+  };
+}
+
+function collide(shape, ox, oy) {
+  for (let r = 0; r < shape.length; r++)
+    for (let c = 0; c < shape[r].length; c++) {
+      if (!shape[r][c]) continue;
+      const x = ox+c, y = oy+r;
+      if (x < 0 || x >= COLS || y >= ROWS) return true;
+      if (y >= 0 && board[y][x]) return true;
+    }
+  return false;
+}
+
+function rotateShape(shape, dir) {
+  const n = shape.length;
+  const res = Array.from({length:n}, () => Array(n).fill(0));
+  if (dir === 1) {
+    for (let r=0;r<n;r++) for (let c=0;c<shape[r].length;c++) res[c][n-1-r] = shape[r][c];
+  } else {
+    for (let r=0;r<n;r++) for (let c=0;c<shape[r].length;c++) res[n-1-c][r] = shape[r][c];
+  }
+  return res;
+}
+
+function tryRotate(dir) {
+  const ns = rotateShape(current.shape, dir);
+  const kicks = current.type === 'I' ? KICKS_I : KICKS_N;
+  const from = current.rot;
+  const to = (from + (dir===1 ? 1 : 3)) % 4;
+  const ki = dir === 1 ? from : to;
+  for (const [dx,dy] of kicks[ki]) {
+    const nx = current.x+dx, ny = current.y-dy;
+    if (!collide(ns, nx, ny)) {
+      current.shape = ns; current.x = nx; current.y = ny; current.rot = to;
+      resetLock(); return;
+    }
+  }
+}
+
+function ghostY() {
+  let gy = current.y;
+  while (!collide(current.shape, current.x, gy+1)) gy++;
+  return gy;
+}
+
+function resetLock() {
+  if (lockTimer !== null) { clearTimeout(lockTimer); lockTimer = null; }
+}
+
+function doLock() {
+  resetLock();
+  for (let r=0; r<current.shape.length; r++)
+    for (let c=0; c<current.shape[r].length; c++) {
+      if (!current.shape[r][c]) continue;
+      const y = current.y+r, x = current.x+c;
+      if (y < 0) { gameOver(); return; }
+      board[y][x] = current.color;
+    }
+  clearLines();
+  holdUsed = false;
+  current = spawn(nextPiece);
+  nextPiece = fromBag();
+  dropAccum = 0;
+  drawNext();
+  if (collide(current.shape, current.x, current.y)) { gameOver(); return; }
+  if (curMode === 'sprint' && lines >= 40) endSprint();
+}
+
+function clearLines() {
+  let cleared = 0;
+  for (let r = ROWS-1; r >= 0; r--) {
+    if (board[r].every(v => v)) {
+      board.splice(r, 1);
+      board.unshift(Array(COLS).fill(0));
+      cleared++; r++;
+    }
+  }
+  if (cleared > 0) {
+    const PTS = [0,100,300,500,800];
+    const pts = (PTS[cleared] || 1200) * level + (combo > 0 ? 50*combo*level : 0);
+    score += pts; combo++;
+    lines += cleared;
+    if (curMode === 'classic') level = Math.floor(lines/10) + 1;
+    if (curMode !== 'sprint' && score > BESTS[curMode]) {
+      BESTS[curMode] = score;
+      localStorage.setItem('best_tetris_' + curMode, score);
+    }
+    if (combo > 1) {
+      document.getElementById('combo-box').style.display = 'block';
+      document.getElementById('combo').textContent = combo + 'x';
+      clearTimeout(comboTO);
+      comboTO = setTimeout(() => document.getElementById('combo-box').style.display = 'none', 1500);
+    }
+    updateHUD();
+  } else {
+    combo = 0;
+    document.getElementById('combo-box').style.display = 'none';
+  }
+}
+
+function holdPiece() {
+  if (holdUsed) return;
+  holdUsed = true;
+  const t = current.type;
+  current = hold ? spawn(hold) : spawn(nextPiece);
+  if (!hold) { nextPiece = fromBag(); drawNext(); }
+  hold = t; dropAccum = 0; drawHold();
+}
+
+// ── Drop interval ────────────────────────────────────────
+function getDI() {
+  if (curMode === 'sprint') return Math.max(50, 900 - (level-1)*80);
+  if (curMode === 'ultra')  return Math.max(80, 950 - (level-1)*75);
+  return Math.max(50, 1000 - (level-1)*90);
+}
+
+// ── Game Loop ────────────────────────────────────────────
+function loop(ts) {
+  if (gameState !== 'playing') return;
+  if (!lastTime) lastTime = ts;
+  const dt = Math.min(ts - lastTime, 100);
+  lastTime = ts;
+  dropAccum += dt;
+  dropInterval = getDI();
+
+  if (dropAccum >= dropInterval) {
+    dropAccum = 0;
+    if (!collide(current.shape, current.x, current.y+1)) {
+      current.y++; resetLock();
+    } else {
+      if (lockTimer === null)
+        lockTimer = setTimeout(() => { lockTimer = null; doLock(); }, 500);
+    }
+  }
+  draw();
+  raf = requestAnimationFrame(loop);
+}
+
+// ── Draw ─────────────────────────────────────────────────
+function cell(cx, x, y, color, a=1) {
+  cx.globalAlpha = a;
+  cx.fillStyle = color;
+  cx.fillRect(x*CS+1, y*CS+1, CS-2, CS-2);
+  cx.fillStyle = 'rgba(255,255,255,0.18)';
+  cx.fillRect(x*CS+1, y*CS+1, CS-2, 4);
+  cx.fillStyle = 'rgba(0,0,0,0.2)';
+  cx.fillRect(x*CS+CS-5, y*CS+1, 4, CS-2);
+  cx.globalAlpha = 1;
+}
+
+function draw() {
+  ctx.fillStyle = '#06000f';
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+  ctx.lineWidth = 1;
+  for (let x=0; x<=COLS; x++) { ctx.beginPath(); ctx.moveTo(x*CS,0); ctx.lineTo(x*CS,H); ctx.stroke(); }
+  for (let y=0; y<=ROWS; y++) { ctx.beginPath(); ctx.moveTo(0,y*CS); ctx.lineTo(W,y*CS); ctx.stroke(); }
+
+  for (let r=0; r<ROWS; r++)
+    for (let c=0; c<COLS; c++)
+      if (board[r][c]) cell(ctx, c, r, board[r][c]);
+
+  // Ghost
+  const gy = ghostY();
+  for (let r=0; r<current.shape.length; r++)
+    for (let c=0; c<current.shape[r].length; c++)
+      if (current.shape[r][c] && gy+r !== current.y+r)
+        cell(ctx, current.x+c, gy+r, current.color, 0.15);
+
+  // Current (glow)
+  ctx.save();
+  ctx.shadowColor = current.glow; ctx.shadowBlur = 14;
+  for (let r=0; r<current.shape.length; r++)
+    for (let c=0; c<current.shape[r].length; c++)
+      if (current.shape[r][c]) cell(ctx, current.x+c, current.y+r, current.color);
+  ctx.restore();
+}
+
+function drawPreview(pctx, pcanvas, type) {
+  pctx.clearRect(0, 0, pcanvas.width, pcanvas.height);
+  if (!type) return;
+  const p = PIECES[type];
+  const sh = p.shape, rows = sh.length, cols = sh[0].length;
+  const cs = Math.min((pcanvas.width-8)/cols, (pcanvas.height-8)/rows);
+  const ox = (pcanvas.width-cols*cs)/2, oy = (pcanvas.height-rows*cs)/2;
+  pctx.save();
+  pctx.shadowColor = p.glow; pctx.shadowBlur = 8;
+  for (let r=0; r<rows; r++)
+    for (let cc=0; cc<cols; cc++)
+      if (sh[r][cc]) {
+        pctx.fillStyle = p.color;
+        pctx.fillRect(ox+cc*cs+1, oy+r*cs+1, cs-2, cs-2);
+        pctx.fillStyle = 'rgba(255,255,255,0.18)';
+        pctx.fillRect(ox+cc*cs+1, oy+r*cs+1, cs-2, 3);
+      }
+  pctx.restore();
+}
+
+function drawNext() { drawPreview(nctx, nc, nextPiece); }
+function drawHold() { drawPreview(hctx, hc, hold); }
+
+function updateHUD() {
+  document.getElementById('score').textContent = score;
+  document.getElementById('level').textContent = level;
+  document.getElementById('lines').textContent = lines;
+  if (curMode !== 'sprint')
+    document.getElementById('best').textContent = BESTS[curMode] || 0;
+}
+
+// ── End ──────────────────────────────────────────────────
+function gameOver() {
+  endWith('😢', '게임 오버', `점수: ${score} | ${lines}줄 클리어`);
+}
+function endSprint() {
+  clearInterval(timerIV);
+  gameState = 'over'; cancelAnimationFrame(raf);
+  const t = gameTimer;
+  let sub = `기록: ${fmtTime(t)}`;
+  if (t < BESTS.sprint) {
+    BESTS.sprint = t; localStorage.setItem('best_tetris_sprint', t);
+    sub += '\n🏆 최고기록 달성!';
+  } else {
+    sub += `\n최고기록: ${fmtTime(BESTS.sprint)}`;
+  }
+  showOv('🏃', '40줄 클리어!', sub);
+}
+function endUltra() {
+  clearInterval(timerIV);
+  gameState = 'over'; cancelAnimationFrame(raf);
+  if (score > BESTS.ultra) {
+    BESTS.ultra = score; localStorage.setItem('best_tetris_ultra', score);
+  }
+  showOv('⚡', '시간 종료!', `점수: ${score}\n최고: ${BESTS.ultra}`);
+}
+function endWith(e, t, s) {
+  clearInterval(timerIV);
+  gameState = 'over'; cancelAnimationFrame(raf);
+  showOv(e, t, s);
+}
+function showOv(e, t, s) {
+  document.getElementById('ov-emoji').textContent = e;
+  document.getElementById('ov-title').textContent = t;
+  document.getElementById('ov-sub').textContent = s;
+  document.getElementById('ov-btn').textContent = '다시 하기';
+  document.getElementById('ov-btn').onclick = startGame;
+  document.getElementById('overlay').style.display = 'flex';
+}
+
+// ── Input ────────────────────────────────────────────────
+const keys = {};
+let dasDir = 0, das = 0, arrAcc = 0;
+const DAS = 150, ARR = 33;
+
+document.addEventListener('keydown', e => {
+  if (gameState !== 'playing' && !(gameState === 'paused' && e.code === 'KeyP')) return;
+  keys[e.code] = true;
+  switch (e.code) {
+    case 'ArrowLeft':  moveL(); dasDir=-1; das=0; break;
+    case 'ArrowRight': moveR(); dasDir=1;  das=0; break;
+    case 'ArrowDown':  softDrop(); break;
+    case 'ArrowUp': case 'KeyZ': tryRotate(1); break;
+    case 'KeyX': tryRotate(-1); break;
+    case 'Space': hardDrop(); break;
+    case 'KeyC': holdPiece(); break;
+    case 'KeyP': togglePause(); break;
+  }
+  if (['ArrowLeft','ArrowRight','ArrowDown','ArrowUp','Space'].includes(e.code)) e.preventDefault();
+});
+
+document.addEventListener('keyup', e => {
+  keys[e.code] = false;
+  if (e.code==='ArrowLeft'||e.code==='ArrowRight') { dasDir=0; das=0; }
+});
+
+setInterval(() => {
+  if (gameState!=='playing'||dasDir===0) return;
+  das += 16;
+  if (das > DAS) { arrAcc+=16; if (arrAcc>=ARR) { arrAcc=0; dasDir===-1?moveL():moveR(); } }
+}, 16);
+
+setInterval(() => { if (gameState==='playing'&&keys['ArrowDown']) softDrop(); }, 50);
+
+function moveL()  { if (!collide(current.shape,current.x-1,current.y)) { current.x--; resetLock(); } }
+function moveR()  { if (!collide(current.shape,current.x+1,current.y)) { current.x++; resetLock(); } }
+function softDrop() {
+  if (!collide(current.shape,current.x,current.y+1)) { current.y++; score+=1; dropAccum=0; updateHUD(); }
+}
+function hardDrop() {
+  let d=0;
+  while (!collide(current.shape,current.x,current.y+1)) { current.y++; d++; }
+  score += d*2; updateHUD(); doLock();
+}
+
+function togglePause() {
+  if (gameState==='playing') {
+    gameState='paused'; cancelAnimationFrame(raf); clearInterval(timerIV);
+    document.getElementById('ov-emoji').textContent='⏸️';
+    document.getElementById('ov-title').textContent='일시정지';
+    document.getElementById('ov-sub').textContent=`점수: ${score}`;
+    document.getElementById('ov-btn').textContent='계속하기';
+    document.getElementById('ov-btn').onclick=resumeGame;
+    document.querySelector('.mode-row').style.display='none';
+    document.getElementById('overlay').style.display='flex';
+  }
+}
+
+function resumeGame() {
+  document.querySelector('.mode-row').style.display='flex';
+  document.getElementById('ov-btn').onclick = startGame;
+  document.getElementById('overlay').style.display='none';
+  gameState='playing'; lastTime=0;
+  raf = requestAnimationFrame(loop);
+  if (curMode !== 'classic') {
+    timerIV = setInterval(() => {
+      if (gameState!=='playing') return;
+      gameTimer+=100;
+      if (curMode==='ultra') {
+        const left=120000-gameTimer;
+        document.getElementById('timer').textContent=fmtTime(Math.max(0,left));
+        if (left<=0) endUltra();
+      } else {
+        document.getElementById('timer').textContent=fmtTime(gameTimer);
+      }
+    }, 100);
+  }
+}
+
+// Touch
+let tx0, ty0;
+c.addEventListener('touchstart', e=>{tx0=e.touches[0].clientX;ty0=e.touches[0].clientY;e.preventDefault();},{passive:false});
+c.addEventListener('touchend', e=>{
+  if (gameState!=='playing') return;
+  const dx=e.changedTouches[0].clientX-tx0, dy=e.changedTouches[0].clientY-ty0;
+  if (Math.abs(dx)<12&&Math.abs(dy)<12) { tryRotate(1); return; }
+  if (Math.abs(dx)>Math.abs(dy)) { dx>0?moveR():moveL(); }
+  else { dy>40?hardDrop():softDrop(); }
+  e.preventDefault();
+},{passive:false});
+
+// Init
+ctx.fillStyle='#06000f'; ctx.fillRect(0,0,W,H);
+</script>
+</body>
+</html>
