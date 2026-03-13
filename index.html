@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎮 Game Hub</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: #0a0a0f;
+  --surface: #13131a;
+  --border: rgba(255,255,255,0.08);
+  --text: #e8e8f0;
+  --muted: #6b6b80;
+  --accent: #7c6ef5;
+  --glow: rgba(124,110,245,0.3);
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ─── 배경 오브 ─── */
+.orb {
+  position: fixed;
+  border-radius: 50%;
+  filter: blur(80px);
+  pointer-events: none;
+  z-index: 0;
+}
+.orb-1 { width: 500px; height: 500px; background: rgba(124,110,245,0.12); top: -150px; right: -100px; }
+.orb-2 { width: 400px; height: 400px; background: rgba(0,210,255,0.08);  bottom: 100px; left: -100px; }
+.orb-3 { width: 300px; height: 300px; background: rgba(253,121,168,0.07); top: 50%;  left: 40%; }
+
+/* ─── 레이아웃 ─── */
+.wrapper {
+  position: relative;
+  z-index: 1;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 24px 80px;
+}
+
+/* ─── 헤더 ─── */
+header {
+  padding: 60px 0 48px;
+  text-align: center;
+}
+.logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.logo-icon {
+  width: 52px; height: 52px;
+  background: linear-gradient(135deg, #7c6ef5, #00d2ff);
+  border-radius: 16px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 26px;
+  box-shadow: 0 0 24px rgba(124,110,245,0.4);
+}
+.logo-text {
+  font-size: 30px;
+  font-weight: 800;
+  background: linear-gradient(135deg, #fff 30%, #7c6ef5);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+header p {
+  color: var(--muted);
+  font-size: 16px;
+  margin-top: 4px;
+}
+
+/* ─── 통계 바 ─── */
+.stats-bar {
+  display: flex;
+  justify-content: center;
+  gap: 32px;
+  margin: 0 0 48px;
+  flex-wrap: wrap;
+}
+.stat {
+  text-align: center;
+}
+.stat-num {
+  font-size: 28px;
+  font-weight: 800;
+  background: linear-gradient(135deg, #7c6ef5, #00d2ff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.stat-label { font-size: 12px; color: var(--muted); margin-top: 2px; letter-spacing: 0.5px; }
+
+/* ─── 필터 탭 ─── */
+.filter-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 32px;
+  flex-wrap: wrap;
+}
+.filter-btn {
+  padding: 8px 20px;
+  border-radius: 99px;
+  border: 1.5px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  letter-spacing: 0.3px;
+}
+.filter-btn:hover { border-color: rgba(255,255,255,0.2); color: var(--text); }
+.filter-btn.active {
+  background: linear-gradient(135deg, #7c6ef5, #5a52c9);
+  border-color: transparent;
+  color: white;
+  box-shadow: 0 0 16px rgba(124,110,245,0.35);
+}
+
+/* ─── 게임 그리드 ─── */
+.game-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+/* ─── 게임 카드 ─── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  overflow: hidden;
+  transition: transform 0.25s, box-shadow 0.25s, border-color 0.25s;
+  cursor: pointer;
+  text-decoration: none;
+  display: block;
+  position: relative;
+}
+.card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 20px 48px rgba(0,0,0,0.4), 0 0 0 1px rgba(124,110,245,0.3);
+  border-color: rgba(124,110,245,0.3);
+}
+.card:hover .card-thumb { transform: scale(1.05); }
+.card:hover .play-btn { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+
+/* 썸네일 */
+.card-thumb-wrap {
+  position: relative;
+  height: 160px;
+  overflow: hidden;
+}
+.card-thumb {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 72px;
+  transition: transform 0.3s;
+}
+.play-btn {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%) scale(0.8);
+  opacity: 0;
+  width: 56px; height: 56px;
+  background: rgba(255,255,255,0.95);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.25s;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+}
+.play-btn svg { width: 22px; height: 22px; fill: #333; margin-left: 3px; }
+
+/* 배지 */
+.badge-row {
+  position: absolute;
+  top: 12px; left: 12px;
+  display: flex; gap: 6px;
+}
+.badge {
+  padding: 3px 10px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+.badge-new   { background: #ff4757; color: white; }
+.badge-hot   { background: #ffa502; color: white; }
+.badge-easy  { background: rgba(0,210,255,0.15); color: #00d2ff; border: 1px solid rgba(0,210,255,0.3); }
+.badge-normal{ background: rgba(124,110,245,0.15); color: #a29bfe; border: 1px solid rgba(124,110,245,0.3); }
+.badge-hard  { background: rgba(255,71,87,0.15); color: #ff6b81; border: 1px solid rgba(255,71,87,0.3); }
+
+/* 카드 바디 */
+.card-body { padding: 18px 20px 20px; }
+.card-genre {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 6px;
+}
+.card-title {
+  font-size: 18px;
+  font-weight: 800;
+  margin-bottom: 8px;
+  color: white;
+}
+.card-desc {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.6;
+  margin-bottom: 16px;
+}
+.card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.card-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ctrl-tag {
+  background: rgba(255,255,255,0.07);
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.card-score {
+  font-size: 12px;
+  color: var(--muted);
+}
+.card-score span { color: #ffd32a; font-weight: 700; }
+
+/* ─── 추가 예정 카드 ─── */
+.card-coming {
+  opacity: 0.4;
+  pointer-events: none;
+}
+.card-coming .card-thumb {
+  filter: grayscale(1);
+}
+
+/* ─── 푸터 ─── */
+footer {
+  text-align: center;
+  margin-top: 60px;
+  color: var(--muted);
+  font-size: 13px;
+}
+</style>
+</head>
+<body>
+
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+<div class="orb orb-3"></div>
+
+<div class="wrapper">
+  <!-- 헤더 -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">🎮</div>
+      <div class="logo-text">Game Hub</div>
+    </div>
+    <p>캐주얼 미니게임 모음 — 언제든 즐겨보세요</p>
+  </header>
+
+  <!-- 통계 -->
+  <div class="stats-bar">
+    <div class="stat">
+      <div class="stat-num" id="game-count">2</div>
+      <div class="stat-label">게임</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num">4</div>
+      <div class="stat-label">장르</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num">무료</div>
+      <div class="stat-label">전부 다</div>
+    </div>
+  </div>
+
+  <!-- 필터 -->
+  <div class="filter-row">
+    <button class="filter-btn active" onclick="filter('all', this)">전체</button>
+    <button class="filter-btn" onclick="filter('puzzle', this)">퍼즐</button>
+    <button class="filter-btn" onclick="filter('arcade', this)">아케이드</button>
+    <button class="filter-btn" onclick="filter('memory', this)">기억력</button>
+  </div>
+
+  <!-- 게임 그리드 -->
+  <div class="game-grid" id="grid">
+
+    <!-- Triple Match -->
+    <a class="card" href="triple-match.html" data-genre="puzzle">
+      <div class="card-thumb-wrap">
+        <div class="card-thumb" style="background: linear-gradient(135deg, #1a0533, #2d1b69);">
+          🍎🍊🍋
+        </div>
+        <div class="play-btn">
+          <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+        </div>
+        <div class="badge-row">
+          <span class="badge badge-hot">HOT</span>
+          <span class="badge badge-normal">보통</span>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="card-genre" style="color:#a29bfe;">🧩 퍼즐</div>
+        <div class="card-title">Triple Match</div>
+        <div class="card-desc">같은 아이템 3개를 모아 없애세요. 트레이가 꽉 차면 게임 오버!</div>
+        <div class="card-footer">
+          <div class="card-controls">
+            <span class="ctrl-tag">🖱 클릭</span>
+          </div>
+          <div class="card-score">최고점 <span id="best-triple">—</span></div>
+        </div>
+      </div>
+    </a>
+
+    <!-- Snake -->
+    <a class="card" href="snake.html" data-genre="arcade">
+      <div class="card-thumb-wrap">
+        <div class="card-thumb" style="background: linear-gradient(135deg, #0d2818, #1a5c30);">
+          🐍
+        </div>
+        <div class="play-btn">
+          <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+        </div>
+        <div class="badge-row">
+          <span class="badge badge-new">NEW</span>
+          <span class="badge badge-easy">쉬움</span>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="card-genre" style="color:#7bed9f;">🕹 아케이드</div>
+        <div class="card-title">Snake</div>
+        <div class="card-desc">먹이를 먹어 몸을 키우세요. 벽이나 자신에게 부딪히면 끝!</div>
+        <div class="card-footer">
+          <div class="card-controls">
+            <span class="ctrl-tag">⌨ 방향키</span>
+            <span class="ctrl-tag">WASD</span>
+          </div>
+          <div class="card-score">최고점 <span id="best-snake">—</span></div>
+        </div>
+      </div>
+    </a>
+
+    <!-- Memory -->
+    <a class="card" href="memory.html" data-genre="memory">
+      <div class="card-thumb-wrap">
+        <div class="card-thumb" style="background: linear-gradient(135deg, #1a0a2e, #3d1a6e);">
+          🃏
+        </div>
+        <div class="play-btn">
+          <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+        </div>
+        <div class="badge-row">
+          <span class="badge badge-new">NEW</span>
+          <span class="badge badge-easy">쉬움</span>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="card-genre" style="color:#fd79a8;">🧠 기억력</div>
+        <div class="card-title">Memory Cards</div>
+        <div class="card-desc">카드를 뒤집어 짝을 맞추세요. 더 빠를수록 고득점!</div>
+        <div class="card-footer">
+          <div class="card-controls">
+            <span class="ctrl-tag">🖱 클릭</span>
+          </div>
+          <div class="card-score">최고점 <span id="best-memory">—</span></div>
+        </div>
+      </div>
+    </a>
+
+    <!-- 2048 -->
+    <a class="card" href="2048.html" data-genre="puzzle">
+      <div class="card-thumb-wrap">
+        <div class="card-thumb" style="background: linear-gradient(135deg, #1a1200, #2d1f00);">
+          🔢
+        </div>
+        <div class="play-btn">
+          <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+        </div>
+        <div class="badge-row">
+          <span class="badge badge-new">NEW</span>
+          <span class="badge badge-normal">보통</span>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="card-genre" style="color:#ffd32a;">🧩 퍼즐</div>
+        <div class="card-title">2048</div>
+        <div class="card-desc">같은 숫자를 합쳐 2048을 만드세요. 전략이 중요!</div>
+        <div class="card-footer">
+          <div class="card-controls">
+            <span class="ctrl-tag">⌨ 방향키</span>
+            <span class="ctrl-tag">👆 스와이프</span>
+          </div>
+          <div class="card-score">최고점 <span id="best-2048">—</span></div>
+        </div>
+      </div>
+    </a>
+
+    <!-- Flappy Bird -->
+    <a class="card" href="flappy.html" data-genre="arcade">
+      <div class="card-thumb-wrap">
+        <div class="card-thumb" style="background: linear-gradient(135deg, #1a1a4e, #0a3380);">
+          🐦
+        </div>
+        <div class="play-btn">
+          <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+        </div>
+        <div class="badge-row">
+          <span class="badge badge-new">NEW</span>
+          <span class="badge badge-hard">어려움</span>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="card-genre" style="color:#74b9ff;">🕹 아케이드</div>
+        <div class="card-title">Flappy Bird</div>
+        <div class="card-desc">파이프 사이를 날아가세요. 한 번 빠지면 헤어나오기 힘들어요!</div>
+        <div class="card-footer">
+          <div class="card-controls">
+            <span class="ctrl-tag">🖱 클릭</span>
+            <span class="ctrl-tag">스페이스</span>
+          </div>
+          <div class="card-score">최고점 <span id="best-flappy">—</span></div>
+        </div>
+      </div>
+    </a>
+
+    <!-- Brick Breaker -->
+    <a class="card" href="brick.html" data-genre="arcade">
+      <div class="card-thumb-wrap">
+        <div class="card-thumb" style="background: linear-gradient(135deg, #0a001a, #12002e);">
+          🧱
+        </div>
+        <div class="play-btn">
+          <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+        </div>
+        <div class="badge-row">
+          <span class="badge badge-new">NEW</span>
+          <span class="badge badge-easy">쉬움</span>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="card-genre" style="color:#e040fb;">🕹 아케이드</div>
+        <div class="card-title">Brick Breaker</div>
+        <div class="card-desc">공을 튕겨 모든 벽돌을 부수세요. 레벨이 올라갈수록 빨라집니다!</div>
+        <div class="card-footer">
+          <div class="card-controls">
+            <span class="ctrl-tag">🖱 마우스</span>
+            <span class="ctrl-tag">← →</span>
+          </div>
+          <div class="card-score">최고점 <span id="best-brick">—</span></div>
+        </div>
+      </div>
+    </a>
+
+  </div>
+
+  <footer>
+    게임 추가 요청은 언제든지 환영합니다 ✨
+  </footer>
+</div>
+
+<script>
+// ─── 필터 ────────────────────────────────────────────────────────────
+function filter(genre, btn) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+
+  document.querySelectorAll('.card:not(.card-coming)').forEach(card => {
+    const match = genre === 'all' || card.dataset.genre === genre;
+    card.style.display = match ? 'block' : 'none';
+  });
+}
+
+// ─── 최고 점수 로드 ───────────────────────────────────────────────────
+function loadBests() {
+  const bests = {
+    'best_triple': 'best-triple',
+    'best_snake':  'best-snake',
+    'best_memory': 'best-memory',
+    'best_2048':   'best-2048',
+    'best_flappy': 'best-flappy',
+    'best_brick':  'best-brick',
+  };
+  for (const [key, id] of Object.entries(bests)) {
+    const v = localStorage.getItem(key);
+    const el = document.getElementById(id);
+    if (v && el) el.textContent = v + '점';
+  }
+  const count = document.querySelectorAll('.card:not(.card-coming)').length;
+  document.getElementById('game-count').textContent = count;
+}
+loadBests();
+</script>
+</body>
+</html>

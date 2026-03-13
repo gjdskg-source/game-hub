@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🐦 Flappy Bird</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  background:#0a0a1a;
+  min-height:100vh;
+  display:flex; align-items:center; justify-content:center;
+  font-family:'Segoe UI',sans-serif;
+}
+#home-btn {
+  position:fixed; top:18px; left:18px;
+  background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15);
+  border-radius:10px; padding:8px 14px;
+  color:rgba(255,255,255,0.6); font-size:13px;
+  text-decoration:none; transition:all 0.2s; backdrop-filter:blur(4px); z-index:9000;
+}
+#home-btn:hover { background:rgba(255,255,255,0.15); color:white; }
+#wrap { position:relative; }
+canvas { display:block; border-radius:20px; box-shadow:0 20px 60px rgba(0,0,0,0.6); }
+
+/* HUD */
+#hud {
+  position:absolute; top:16px; left:0; right:0;
+  display:flex; justify-content:space-between; padding:0 20px;
+  pointer-events:none;
+}
+.hud-pill {
+  background:rgba(0,0,0,0.4); backdrop-filter:blur(4px);
+  border-radius:99px; padding:6px 16px;
+  color:white; font-size:13px; font-weight:700;
+  border:1px solid rgba(255,255,255,0.15);
+}
+
+/* 오버레이 */
+#overlay {
+  position:absolute; inset:0;
+  background:rgba(0,0,0,0.6); border-radius:20px;
+  display:flex; align-items:center; justify-content:center;
+  backdrop-filter:blur(6px);
+}
+#ov-inner { text-align:center; color:white; }
+#ov-emoji { font-size:60px; margin-bottom:10px; }
+#ov-title { font-size:26px; font-weight:800; margin-bottom:6px; }
+#ov-sub   { font-size:14px; color:rgba(255,255,255,0.5); margin-bottom:24px; }
+#ov-btn {
+  background:linear-gradient(135deg,#00c6ff,#0072ff);
+  color:white; border:none; padding:13px 40px; border-radius:99px;
+  font-size:16px; font-weight:700; cursor:pointer;
+  box-shadow:0 4px 20px rgba(0,114,255,0.4); transition:transform 0.15s;
+}
+#ov-btn:hover { transform:scale(1.05); }
+#ov-hint { margin-top:14px; font-size:12px; color:rgba(255,255,255,0.3); }
+</style>
+</head>
+<body>
+<a id="home-btn" href="index.html">← 홈</a>
+<div id="wrap">
+  <canvas id="c" width="360" height="600"></canvas>
+  <div id="hud">
+    <div class="hud-pill">점수 <span id="sc">0</span></div>
+    <div class="hud-pill">최고 <span id="bs">0</span></div>
+  </div>
+  <div id="overlay">
+    <div id="ov-inner">
+      <div id="ov-emoji">🐦</div>
+      <div id="ov-title">Flappy Bird</div>
+      <div id="ov-sub">파이프 사이를 통과하세요!</div>
+      <button id="ov-btn" onclick="startGame()">시작하기</button>
+      <div id="ov-hint">스페이스 / 클릭 / 탭</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const c   = document.getElementById('c');
+const ctx = c.getContext('2d');
+const W = c.width, H = c.height;
+
+let bird, pipes, score, best, raf, state;
+best = parseInt(localStorage.getItem('best_flappy')||'0');
+document.getElementById('bs').textContent = best;
+
+// ── 색상 팔레트 ────────────────────────
+const SKY_TOP    = '#1a1a4e';
+const SKY_BOT    = '#0a3380';
+const GROUND_TOP = '#2d5a1b';
+const GROUND_BOT = '#1a3610';
+const PIPE_COLOR = '#2ed573';
+const PIPE_DARK  = '#1abc9c';
+const BIRD_BODY  = '#ffd32a';
+const BIRD_EYE   = '#fff';
+
+const GND_H  = 60;
+const GAP    = 160;
+const PIPE_W = 52;
+const GRAV   = 0.38;
+const FLAP   = -7.2;
+const SPEED  = 2.4;
+
+function startGame() {
+  document.getElementById('overlay').style.display='none';
+  bird  = { x:80, y:H/2, vy:0, rot:0, r:16 };
+  pipes = [];
+  score = 0;
+  state = 'playing';
+  document.getElementById('sc').textContent = 0;
+  cancelAnimationFrame(raf);
+  loop();
+}
+
+function flap() {
+  if(state!=='playing') return;
+  bird.vy = FLAP;
+}
+document.addEventListener('keydown', e=>{ if(e.code==='Space'){ flap(); e.preventDefault(); }});
+c.addEventListener('click', flap);
+c.addEventListener('touchstart', e=>{ flap(); e.preventDefault(); },{passive:false});
+
+function spawnPipe() {
+  const min = 80, max = H - GND_H - GAP - 80;
+  const topH = min + Math.random()*(max-min);
+  pipes.push({ x:W+10, topH, passed:false });
+}
+
+let frame=0;
+function loop() {
+  raf = requestAnimationFrame(loop);
+  frame++;
+  update();
+  draw();
+}
+
+function update() {
+  // 중력
+  bird.vy += GRAV;
+  bird.y  += bird.vy;
+  bird.rot = Math.min(Math.max(bird.vy*4, -30), 90);
+
+  // 파이프 스폰
+  if(frame%90===0) spawnPipe();
+
+  // 파이프 이동 + 충돌
+  for(const p of pipes) {
+    p.x -= SPEED;
+    // 점수
+    if(!p.passed && p.x+PIPE_W < bird.x) {
+      p.passed=true; score++;
+      document.getElementById('sc').textContent=score;
+      if(score>best){ best=score; localStorage.setItem('best_flappy',best); document.getElementById('bs').textContent=best; }
+    }
+    // 충돌
+    if(hitPipe(bird,p)) { die(); return; }
+  }
+  pipes = pipes.filter(p=>p.x>-PIPE_W-10);
+
+  // 바닥/천장
+  if(bird.y-bird.r < 0 || bird.y+bird.r > H-GND_H) { die(); return; }
+}
+
+function hitPipe(b,p) {
+  if(b.x+b.r<p.x || b.x-b.r>p.x+PIPE_W) return false;
+  if(b.y-b.r<p.topH || b.y+b.r>p.topH+GAP) return true;
+  return false;
+}
+
+function die() {
+  cancelAnimationFrame(raf);
+  state='dead';
+  if(score>best){ best=score; localStorage.setItem('best_flappy',best); }
+  document.getElementById('ov-emoji').textContent = score>=10?'🎉':'😵';
+  document.getElementById('ov-title').textContent = '게임 오버';
+  document.getElementById('ov-sub').textContent   = `점수: ${score} | 최고: ${best}`;
+  document.getElementById('ov-btn').textContent   = '다시 하기';
+  document.getElementById('overlay').style.display='flex';
+}
+
+// ── 그리기 ──────────────────────────────
+function draw() {
+  // 하늘 그라디언트
+  const sky=ctx.createLinearGradient(0,0,0,H-GND_H);
+  sky.addColorStop(0,SKY_TOP); sky.addColorStop(1,SKY_BOT);
+  ctx.fillStyle=sky; ctx.fillRect(0,0,W,H-GND_H);
+
+  // 별
+  ctx.fillStyle='rgba(255,255,255,0.4)';
+  for(let i=0;i<30;i++){const sx=(i*137)%W,sy=(i*89)%((H-GND_H)*0.7);ctx.fillRect(sx,sy,1.5,1.5);}
+
+  // 파이프
+  for(const p of pipes) drawPipe(p);
+
+  // 바닥
+  const grd=ctx.createLinearGradient(0,H-GND_H,0,H);
+  grd.addColorStop(0,GROUND_TOP); grd.addColorStop(1,GROUND_BOT);
+  ctx.fillStyle=grd; ctx.fillRect(0,H-GND_H,W,GND_H);
+  ctx.fillStyle='rgba(255,255,255,0.08)'; ctx.fillRect(0,H-GND_H,W,2);
+
+  // 새
+  drawBird();
+}
+
+function drawPipe(p) {
+  const r=8;
+  // 윗 파이프
+  ctx.fillStyle=PIPE_COLOR;
+  roundRectFill(p.x,0,PIPE_W,p.topH-10,r);
+  ctx.fillStyle=PIPE_DARK;
+  roundRectFill(p.x-4,p.topH-28,PIPE_W+8,22,r);
+  // 아랫 파이프
+  const botY=p.topH+GAP;
+  ctx.fillStyle=PIPE_DARK;
+  roundRectFill(p.x-4,botY+6,PIPE_W+8,22,r);
+  ctx.fillStyle=PIPE_COLOR;
+  roundRectFill(p.x,botY+28,PIPE_W,H-GND_H-botY-28,r);
+  // 광택
+  ctx.fillStyle='rgba(255,255,255,0.15)';
+  ctx.fillRect(p.x+6,0,8,p.topH-10);
+  ctx.fillRect(p.x+6,botY+28,8,H-GND_H-botY-28);
+}
+
+function drawBird() {
+  ctx.save();
+  ctx.translate(bird.x, bird.y);
+  ctx.rotate(bird.rot*Math.PI/180);
+  // 몸통
+  ctx.fillStyle=BIRD_BODY;
+  ctx.beginPath(); ctx.arc(0,0,bird.r,0,Math.PI*2); ctx.fill();
+  // 윤곽
+  ctx.strokeStyle='rgba(0,0,0,0.2)'; ctx.lineWidth=2; ctx.stroke();
+  // 날개
+  ctx.fillStyle='#ffb300';
+  ctx.beginPath(); ctx.ellipse(-6,4,10,6,0.3,0,Math.PI*2); ctx.fill();
+  // 눈
+  ctx.fillStyle=BIRD_EYE;
+  ctx.beginPath(); ctx.arc(8,-4,5,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#222';
+  ctx.beginPath(); ctx.arc(9,-4,2.5,0,Math.PI*2); ctx.fill();
+  // 부리
+  ctx.fillStyle='#ff7f00';
+  ctx.beginPath(); ctx.moveTo(14,-1); ctx.lineTo(22,2); ctx.lineTo(14,5); ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+
+function roundRectFill(x,y,w,h,r) {
+  if(h<=0) return;
+  ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y);
+  ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+  ctx.lineTo(x+w,y+h-r); ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  ctx.lineTo(x+r,y+h); ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+  ctx.lineTo(x,y+r); ctx.quadraticCurveTo(x,y,x+r,y);
+  ctx.closePath(); ctx.fill();
+}
+
+// 초기 화면 그리기
+(function initDraw(){
+  const sky=ctx.createLinearGradient(0,0,0,H);
+  sky.addColorStop(0,SKY_TOP); sky.addColorStop(1,SKY_BOT);
+  ctx.fillStyle=sky; ctx.fillRect(0,0,W,H);
+})();
+</script>
+</body>
+</html>
