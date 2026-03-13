@@ -339,6 +339,7 @@ function buildNumpad() {
     const btn = document.createElement('button');
     btn.className = 'nkey';
     btn.textContent = SIZE === 16 && n > 9 ? String.fromCharCode(55+n) : n;
+    btn.dataset.num = n;
     btn.onclick = () => inputNum(n);
     np.appendChild(btn);
   }
